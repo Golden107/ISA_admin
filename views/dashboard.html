@@ -243,6 +243,24 @@
             </div>
         </div>
 
+        <div id="allRecordsSection"
+            style="display: none; background: #eef2f6; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3 class="section-title" style="color: var(--primary-color);">🏢 全公司申請單總覽 (高階主管專區)</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>單號</th>
+                        <th>申請人</th>
+                        <th>表單類型</th>
+                        <th>申請日期</th>
+                        <th>進度狀態</th>
+                        <th>明細</th>
+                    </tr>
+                </thead>
+                <tbody id="allRecordsList"></tbody>
+            </table>
+        </div>
+
         <div id="approvalSection">
             <h3 class="section-title">待我簽核的任務</h3>
             <table class="data-table">
@@ -267,6 +285,7 @@
                     <th>表單類型</th>
                     <th>送出日期</th>
                     <th>目前進度</th>
+                    <th>明細</th>
                 </tr>
             </thead>
             <tbody id="myRecordsList"></tbody>
@@ -284,39 +303,61 @@
     </div>
 
     <script>
-        let pendingFormsData = [];
+        // 💡 建立全域變數與中英文對照翻譯字典
+        let allFormsData = {};
 
-        function logout() { 
-            localStorage.removeItem('currentUser'); 
-            window.location.href = '/'; 
+        const translateDict = {
+            // 欄位名稱翻譯
+            'payment_amount': '請款金額 (NT$)', 'payee_name': '受款人/廠商名稱', 'payment_reason': '請款事由說明', 'receipt_image': '收據/發票影像',
+            'leave_type': '假別', 'substitute': '代理人', 'leave_start': '起始時間', 'leave_end': '結束時間', 'leave_reason': '請假事由',
+            'document_name': '文件名稱', 'seal_type': '印信種類', 'seal_copies': '用印份數', 'seal_reason': '用印事由與文件摘要', 'document_file': '上傳文件電子檔',
+            'item_name': '物品名稱', 'estimated_cost': '預估總金額 (NT$)', 'quantity': '數量', 'supplier_link': '參考網址/供應商', 'procurement_reason': '採購原因與規格說明',
+            'withdraw_amount': '提領金額 (NT$)', 'withdraw_date': '預計提領日期', 'withdraw_reason': '提款用途說明',
+            'copy_color': '影印類型', 'copy_pages': '總張數', 'project_class': '歸屬專案 / 班級',
+            'data_target_type': '調閱對象類別', 'data_scope': '調閱範圍/條件', 'data_purpose': '調閱目的與用途', 'data_compliance': '同意資安規範',
+            // 欄位內容值翻譯
+            'annual': '特休/年假', 'sick': '病假', 'personal': '事假', 'official': '公假',
+            'company': '公司大章', 'representative': '負責人小章', 'both': '大小章', 'contract': '合約專用章',
+            'black_white': '黑白', 'color': '彩色',
+            'student': '學生個資', 'parent': '家長個資', 'employee': '員工個資',
+            'on': '是 / 已同意'
+        };
+
+        const t = (text) => translateDict[text] || text;
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = '/';
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const userStr = localStorage.getItem('currentUser');
-            
-            // 💡 已修正：防止拿到字串的 "undefined" 造成 JSON.parse 報錯
-            if (!userStr || userStr === 'undefined') { 
-                localStorage.removeItem('currentUser'); // 清除髒資料
-                window.location.href = '/'; 
-                return; 
+
+            if (!userStr || userStr === 'undefined') {
+                localStorage.removeItem('currentUser');
+                window.location.href = '/';
+                return;
             }
-            
+
             const user = JSON.parse(userStr);
 
             const roleMapping = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
             document.getElementById('userName').textContent = `${user.name} (${roleMapping[user.role] || user.role})`;
 
-            // 💡 權限管理按鈕顯示邏輯
             if (user.role === 'CISO') document.getElementById('menu-users').style.display = 'block';
 
             if (user.role === 'EMPLOYEE') document.getElementById('approvalSection').style.display = 'none';
             else await loadPendingForms(user.role);
 
+            if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) {
+                document.getElementById('allRecordsSection').style.display = 'block';
+                await loadAllRecords(user.role);
+            }
+
             await loadMyRecords(user.id);
-            await loadChart(); // 💡 載入統計圖表
+            await loadChart();
         });
 
-        // 💡 載入並繪製統計圖表
         async function loadChart() {
             try {
                 const response = await fetch('/api/forms/stats');
@@ -338,30 +379,176 @@
             const response = await fetch(`/api/forms/pending/${role}`);
             const result = await response.json();
             if (result.success) {
-                pendingFormsData = result.data;
                 tbody.innerHTML = result.data.length ? '' : '<tr><td colspan="5" style="text-align:center;">目前無任務</td></tr>';
                 result.data.forEach(form => {
-                    tbody.innerHTML += `<tr><td>#${form.application_id}</td><td>${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString()}</td><td><button class="btn btn-view" onclick="openModal(${form.application_id})">查看</button><button class="btn btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button></td></tr>`;
+                    allFormsData[form.application_id] = form; // 存入總資料庫
+                    tbody.innerHTML += `<tr><td>#${form.application_id}</td><td>${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td><td><button class="btn btn-view" onclick="openModal(${form.application_id})">查看</button><button class="btn btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button><button class="btn btn-reject" onclick="reviewForm(${form.application_id}, 'REJECT')">駁回</button></td></tr>`;
                 });
             }
         }
 
+        async function loadAllRecords(userRole) {
+            const tbody = document.getElementById('allRecordsList');
+            try {
+                const response = await fetch(`/api/forms/all-records`, { headers: { 'x-user-role': userRole } });
+                const result = await response.json();
+
+                if (result.success) {
+                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="6" style="text-align:center;">目前無任何申請紀錄</td></tr>' : '';
+                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已結案</span>', 'REJECTED': '<span class="badge" style="background:#FED7D7; color:#C53030;">被駁回</span>' };
+                    const stepMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
+
+                    result.data.forEach(form => {
+                        allFormsData[form.application_id] = form; // 存入總資料庫
+                        let progressText = form.status === 'PENDING' ? ` (卡在: ${stepMap[form.current_step] || '完成'})` : '';
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>#${form.application_id}</td>
+                                <td style="font-weight:bold;">${form.applicant_name}</td>
+                                <td>${form.form_type_name}</td>
+                                <td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td>
+                                <td>${statusMap[form.status]} ${progressText}</td>
+                                <td><button class="btn btn-view" onclick="openModal(${form.application_id})">看內容</button></td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (err) { console.error("無法載入總表", err); }
+        }
+
+        async function loadMyRecords(userId) {
+            const tbody = document.getElementById('myRecordsList');
+            try {
+                const response = await fetch(`/api/forms/my-records/${userId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="5" style="text-align:center;">目前無申請紀錄</td></tr>' : '';
+                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已核准</span>', 'REJECTED': '<span class="badge" style="background:#FED7D7; color:#C53030;">已駁回</span>' };
+
+                    result.data.forEach(record => {
+                        allFormsData[record.application_id] = record; // 存入總資料庫
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>#${record.application_id}</td>
+                                <td>${record.form_type_name}</td>
+                                <td>${new Date(record.created_at).toLocaleDateString('zh-TW')}</td>
+                                <td>${statusMap[record.status] || record.status}</td>
+                                <td><button class="btn btn-view" onclick="openModal(${record.application_id})">看內容</button></td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (err) { console.error("無法載入申請紀錄", err); }
+        }
+
+        // 💡 視覺化燈箱與翻譯邏輯
         function openModal(id) {
-            const form = pendingFormsData.find(f => f.application_id === id);
+            const form = allFormsData[id];
             if (!form) return;
-            document.getElementById('modalTitle').textContent = `#${form.application_id}`;
+
+            document.getElementById('modalTitle').textContent = `申請單明細 #${form.application_id}`;
             const body = document.getElementById('modalBody');
             body.innerHTML = '';
-            const content = JSON.parse(form.content);
-            for (let key in content) {
-                body.innerHTML += `<div class="detail-row"><span class="detail-label">${key}：</span>${content[key]}</div>`;
+
+            // --- 繪製進度條 (動態計算通過關卡) ---
+            const steps = ['單位主管', '管理部主任', '資安長', '班主任'];
+            let progressHtml = `
+            <div style="margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #E2E8F0;">
+                <div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-color);">表單簽核進度：</div>
+                <div style="display:flex; justify-content:space-between; text-align:center; position: relative;">
+                    <div style="position: absolute; top: 12px; left: 10%; right: 10%; height: 2px; background: #E2E8F0; z-index: 1;"></div>`;
+
+            steps.forEach((stepName, index) => {
+                let stepNum = index + 1;
+                let statusColor = '#A0AEC0'; // 預設灰 (未到)
+                let icon = '⏳';
+
+                if (form.status === 'REJECTED' && form.current_step === stepNum) {
+                    statusColor = '#E53E3E'; icon = '❌'; // 駁回點
+                } else if (form.status === 'APPROVED' || form.current_step > stepNum) {
+                    statusColor = '#38A169'; icon = '✅'; // 已通過
+                } else if (form.status === 'PENDING' && form.current_step === stepNum) {
+                    statusColor = '#D69E2E'; icon = '✍️'; // 當前卡關
+                }
+
+                progressHtml += `
+                    <div style="z-index: 2; background: #fff; padding: 0 5px; color: ${statusColor}; font-weight: bold; font-size: 0.85rem;">
+                        <div style="font-size: 1.2rem;">${icon}</div>
+                        <div style="margin-top: 5px;">第${stepNum}關<br>${stepName}</div>
+                    </div>`;
+            });
+            progressHtml += `</div></div>`;
+            body.innerHTML += progressHtml;
+
+            // --- 繪製翻譯後的表單內容 ---
+            try {
+                // 如果後端尚未補上 a.content，這裡會產生 undefined 錯誤，用 catch 捕捉
+                if (!form.content) throw new Error("無表單內容資料");
+
+                const content = JSON.parse(form.content);
+                for (let key in content) {
+                    // 跳過系統隱藏欄位
+                    if (key === 'formType' || key === 'userId') continue;
+
+                    let displayKey = t(key);
+                    let displayVal = t(content[key]);
+
+                    if (typeof content[key] === 'string' && content[key].startsWith('/uploads/')) {
+                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}：</span><a href="${content[key]}" target="_blank" style="color:var(--primary-color); font-weight:bold;">📄 [點此預覽附件]</a></div>`;
+                    } else {
+                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}：</span>${displayVal}</div>`;
+                    }
+                }
+            } catch (e) {
+                body.innerHTML += `<div class="detail-row" style="color:red;">請確認後端已更新 API 以回傳表單內容 (a.content)。</div>`;
             }
+
             document.getElementById('detailModal').classList.add('active');
         }
 
         function closeModal() { document.getElementById('detailModal').classList.remove('active'); }
-        async function loadMyRecords(userId) { /* ...原本邏輯... */ }
-        async function reviewForm(id, action) { /* ...原本邏輯... */ }
+
+        async function reviewForm(id, action) {
+            const actionText = action === 'APPROVE' ? '核准' : '駁回';
+            if (!confirm(`確定要「${actionText}」這張表單嗎？`)) return;
+
+            const userStr = localStorage.getItem('currentUser');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+
+            const comment = prompt(`請輸入簽核意見 (${actionText}):`, action === 'APPROVE' ? "同意" : "");
+            if (comment === null) return;
+
+            try {
+                const response = await fetch(`/api/forms/${id}/review`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: action,
+                        comment: comment || '',
+                        approverId: user.id
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message);
+
+                    loadPendingForms(user.role);
+                    if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) {
+                        loadAllRecords(user.role);
+                    }
+                    loadMyRecords(user.id);
+
+                } else {
+                    alert("簽核失敗：" + result.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("系統連線異常，簽核失敗");
+            }
+        }    
     </script>
 </body>
 
