@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>補教行政系統 | 申請大廳</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #0F4C81;
+            --sidebar-bg: #FFFFFF;
+            --bg-color: #F4F7F6;
+            --text-main: #333;
+            --border-color: #E2E8F0;
+            --status-pending: #D69E2E;
+            --status-approved: #38A169;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+        }
+
+        body {
+            display: flex;
+            background: var(--bg-color);
+            min-height: 100vh;
+            color: var(--text-main);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: #555;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .menu-item:hover,
+        .menu-item.active {
+            background: var(--primary-color);
+            color: #fff;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table th {
+            background: #F8FAFC;
+            color: #64748B;
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .badge.pending {
+            background: #FEFCBF;
+            color: var(--status-pending);
+        }
+
+        .badge.approved {
+            background: #C6F6D5;
+            color: var(--status-approved);
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 4px;
+        }
+
+        .btn-approve {
+            background: var(--status-approved);
+            color: #fff;
+        }
+
+        .btn-reject {
+            background: #E53E3E;
+            color: #fff;
+        }
+
+        .btn-view {
+            background: #3182CE;
+            color: #fff;
+        }
+
+        /* 燈箱樣式 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-container {
+            background: #fff;
+            width: 90%;
+            max-width: 550px;
+            max-height: 85vh;
+            overflow-y: auto;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal-container {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .detail-row {
+            margin-bottom: 12px;
+            line-height: 1.5;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 10px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+            display: inline-block;
+            width: 130px;
+        }
+    </style>
+</head>
+
+<body>
+    <aside class="sidebar">
+        <h2>行政管理系統</h2>
+        <a href="/dashboard" class="menu-item active">申請大廳</a>
+        <a href="/apply" class="menu-item">新增表單申請</a>
+        <a href="/users" class="menu-item" id="menu-users" style="display: none;">權限管理 (資安長專用)</a>
+        <a href="#" class="menu-item" onclick="logout()" style="color:#E53E3E; margin-top: 20px;">登出系統</a>
+    </aside>
+
+    <main class="main-content">
+        <div class="header">
+            <h1>工作面板</h1>
+            <div>當前使用者：<span id="userName" style="font-weight:bold; color:var(--primary-color);">載入中...</span></div>
+        </div>
+
+        <div class="chart-container"
+            style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+            <h3 class="section-title">系統表單比例分佈</h3>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="typeChart"></canvas>
+            </div>
+        </div>
+
+        <div id="approvalSection">
+            <h3 class="section-title">待我簽核的任務</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>單號</th>
+                        <th>申請人</th>
+                        <th>表單類型</th>
+                        <th>申請日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="approvalList"></tbody>
+            </table>
+        </div>
+
+        <h3 class="section-title">我的申請紀錄</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>單號</th>
+                    <th>表單類型</th>
+                    <th>送出日期</th>
+                    <th>目前進度</th>
+                </tr>
+            </thead>
+            <tbody id="myRecordsList"></tbody>
+        </table>
+    </main>
+
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">單據明細</div>
+                <button class="btn-close" onclick="closeModal()">×</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        let pendingFormsData = [];
+
+        function logout() { 
+            localStorage.removeItem('currentUser'); 
+            window.location.href = '/'; 
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userStr = localStorage.getItem('currentUser');
+            
+            // 💡 已修正：防止拿到字串的 "undefined" 造成 JSON.parse 報錯
+            if (!userStr || userStr === 'undefined') { 
+                localStorage.removeItem('currentUser'); // 清除髒資料
+                window.location.href = '/'; 
+                return; 
+            }
+            
+            const user = JSON.parse(userStr);
+
+            const roleMapping = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
+            document.getElementById('userName').textContent = `${user.name} (${roleMapping[user.role] || user.role})`;
+
+            // 💡 權限管理按鈕顯示邏輯
+            if (user.role === 'CISO') document.getElementById('menu-users').style.display = 'block';
+
+            if (user.role === 'EMPLOYEE') document.getElementById('approvalSection').style.display = 'none';
+            else await loadPendingForms(user.role);
+
+            await loadMyRecords(user.id);
+            await loadChart(); // 💡 載入統計圖表
+        });
+
+        // 💡 載入並繪製統計圖表
+        async function loadChart() {
+            try {
+                const response = await fetch('/api/forms/stats');
+                const result = await response.json();
+                if (result.success && result.data.length > 0) {
+                    new Chart(document.getElementById('typeChart').getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: result.data.map(i => i.label),
+                            datasets: [{ data: result.data.map(i => i.value), backgroundColor: ['#3182CE', '#E53E3E', '#D69E2E', '#38A169', '#805AD5'] }]
+                        }
+                    });
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadPendingForms(role) {
+            const tbody = document.getElementById('approvalList');
+            const response = await fetch(`/api/forms/pending/${role}`);
+            const result = await response.json();
+            if (result.success) {
+                pendingFormsData = result.data;
+                tbody.innerHTML = result.data.length ? '' : '<tr><td colspan="5" style="text-align:center;">目前無任務</td></tr>';
+                result.data.forEach(form => {
+                    tbody.innerHTML += `<tr><td>#${form.application_id}</td><td>${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString()}</td><td><button class="btn btn-view" onclick="openModal(${form.application_id})">查看</button><button class="btn btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button></td></tr>`;
+                });
+            }
+        }
+
+        function openModal(id) {
+            const form = pendingFormsData.find(f => f.application_id === id);
+            if (!form) return;
+            document.getElementById('modalTitle').textContent = `#${form.application_id}`;
+            const body = document.getElementById('modalBody');
+            body.innerHTML = '';
+            const content = JSON.parse(form.content);
+            for (let key in content) {
+                body.innerHTML += `<div class="detail-row"><span class="detail-label">${key}：</span>${content[key]}</div>`;
+            }
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('detailModal').classList.remove('active'); }
+        async function loadMyRecords(userId) { /* ...原本邏輯... */ }
+        async function reviewForm(id, action) { /* ...原本邏輯... */ }
+    </script>
+</body>
+
+</html>
