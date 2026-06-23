@@ -5,8 +5,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// 引入 LINE 推播模組
-const { sendLineMessage, notifyNextApprovers } = require('./webhook'); 
+// 引入 LINE 推播模組與卡片通知功能
+const { notifyNextApprovers, notifyApplicant } = require('./webhook'); 
 
 const uploadDir = path.join(__dirname, '../public/uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -41,7 +41,6 @@ router.post('/apply', upload.any(), async (req, res) => {
         
         const newFormId = result.insertId; 
         
-        // 呼叫模組，自動發送精美卡片給第一關的主管
         await notifyNextApprovers(newFormId);
 
         res.json({ success: true, message: '表單已成功送出並進入簽核流程。' });
@@ -63,7 +62,7 @@ router.get('/pending/:role', async (req, res) => {
 
     try {
         const [rows] = await db.query(`
-            SELECT a.id AS application_id, u.name AS applicant_name, f.name AS form_type_name, a.created_at, a.current_step, a.content
+            SELECT a.id AS application_id, u.name AS applicant_name, f.name AS form_type_name, f.id AS form_type_id, a.created_at, a.current_step, a.content
             FROM applications a
             JOIN users u ON a.user_id = u.id
             JOIN form_types f ON a.form_type_id = f.id
@@ -116,9 +115,7 @@ router.post('/:id/review', async (req, res) => {
 
         if (action === 'REJECT') {
             await db.query('UPDATE applications SET status = "REJECTED" WHERE id = ?', [applicationId]);
-            if (applicantLineId) {
-                await sendLineMessage(applicantLineId, `【簽核通知】\n您的「${formName}」 (單號 #${applicationId}) 已遭到主管駁回。\n主管意見：${comment || '無'}`);
-            }
+            await notifyApplicant(applicantLineId, applicationId, formName, 'REJECTED', null, comment);
             return res.json({ success: true, message: '已駁回表單，流程結束。' });
         }
 
@@ -142,18 +139,12 @@ router.post('/:id/review', async (req, res) => {
 
         if (isFinal) {
             await db.query('UPDATE applications SET status = "APPROVED" WHERE id = ?', [applicationId]);
-            if (applicantLineId) {
-                await sendLineMessage(applicantLineId, `【簽核通知】\n恭喜！您的「${formName}」 (單號 #${applicationId}) 已完成最終決行並結案。`);
-            }
+            await notifyApplicant(applicantLineId, applicationId, formName, 'APPROVED_FINAL', null, null);
             res.json({ success: true, message: '最終簽核完成，表單已正式結案。' });
         } else {
             await db.query('UPDATE applications SET current_step = ? WHERE id = ?', [nextStep, applicationId]);
-            if (applicantLineId) {
-                await sendLineMessage(applicantLineId, `【簽核通知】\n您的「${formName}」 (單號 #${applicationId}) 已通過第 ${currentStep} 關，目前轉交下一關主管審核中。`);
-            }
-            // 呼叫模組，自動發送卡片推播給下一關主管！
+            await notifyApplicant(applicantLineId, applicationId, formName, 'FORWARDED', nextStep, null);
             await notifyNextApprovers(applicationId);
-
             res.json({ success: true, message: '已核准，表單已自動轉交下一關。' });
         }
 
@@ -167,13 +158,12 @@ router.get('/all-records', async (req, res) => {
     const role = req.headers['x-user-role'];
     const allowedRoles = ['PRINCIPAL', 'DIRECTOR', 'CISO'];
 
-    if (!allowedRoles.includes(role)) {
-        return res.status(403).json({ success: false, error: '權限不足' });
-    }
+    if (!allowedRoles.includes(role)) return res.status(403).json({ success: false, error: '權限不足' });
 
     try {
         const [rows] = await db.query(`
-            SELECT a.id AS application_id, u.name AS applicant_name, f.name AS form_type_name, \n                   a.created_at, a.status, a.current_step, a.content
+            SELECT a.id AS application_id, u.name AS applicant_name, f.name AS form_type_name, f.id AS form_type_id,
+                   a.created_at, a.status, a.current_step, a.content
             FROM applications a
             JOIN users u ON a.user_id = u.id
             JOIN form_types f ON a.form_type_id = f.id

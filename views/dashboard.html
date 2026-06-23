@@ -627,11 +627,11 @@
                 if (result.success) {
                     tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="5" class="empty-state">目前無申請紀錄</td></tr>' : '';
                     const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已核准結案</span>', 'REJECTED': '<span class="badge rejected">已駁回</span>' };
-                    const stepMap = { 1: '主管', 2: '主任', 3: '資安長', 4: '班主任' };
+                    const stepMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
 
                     result.data.forEach(record => {
                         allFormsData[record.application_id] = record;
-                        let currentStepStr = record.status === 'PENDING' ? `第 ${record.current_step} 關 (${stepMap[record.current_step] || '未知'})` : '-';
+                        let currentStepStr = record.status === 'PENDING' ? `轉交【${stepMap[record.current_step] || '未知'}】中` : '-';
 
                         tbody.innerHTML += `
                             <tr>
@@ -655,15 +655,28 @@
             const body = document.getElementById('modalBody');
             body.innerHTML = '';
 
-            const steps = ['單位主管', '管理部主任', '資安長', '班主任'];
+            // 💡 動態判斷要顯示的節點 (完全不顯示不需參與的職稱)
+            let stepsDef = [];
+            if (form.form_type_id === 7) {
+                // 個資調閱：主管 -> 主任 -> 資安長
+                stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 3, name: '資安長' }];
+            } else if (form.form_type_id === 3) {
+                // 用印申請：全員參與
+                stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 3, name: '資安長' }, { num: 4, name: '班主任' }];
+            } else {
+                // 其他表單：主管 -> 主任 -> 班主任 (跳過資安長)
+                stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 4, name: '班主任' }];
+            }
+
             let progressHtml = `
             <div style="margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #E2E8F0;">
                 <div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-color);">表單簽核進度：</div>
                 <div style="display:flex; justify-content:space-between; text-align:center; position: relative;">
-                    <div style="position: absolute; top: 12px; left: 10%; right: 10%; height: 2px; background: #E2E8F0; z-index: 1;"></div>`;
+                    <div style="position: absolute; top: 12px; left: 5%; right: 5%; height: 2px; background: #E2E8F0; z-index: 1;"></div>`;
 
-            steps.forEach((stepName, index) => {
-                let stepNum = index + 1;
+            stepsDef.forEach((step) => {
+                let stepNum = step.num;
+                let stepName = step.name;
                 let statusColor = '#A0AEC0'; let icon = '⏳';
 
                 if (form.status === 'REJECTED' && form.current_step === stepNum) {
@@ -674,10 +687,11 @@
                     statusColor = '#D69E2E'; icon = '✍️';
                 }
 
+                // 移除原有的「第 X 關」字眼，讓畫面更嚴謹專業
                 progressHtml += `
                     <div style="z-index: 2; background: #fff; padding: 0 5px; color: ${statusColor}; font-weight: bold; font-size: 0.85rem;">
                         <div style="font-size: 1.2rem;">${icon}</div>
-                        <div style="margin-top: 5px;">第${stepNum}關<br>${stepName}</div>
+                        <div style="margin-top: 5px;">${stepName}</div>
                     </div>`;
             });
             progressHtml += `</div></div>`;
@@ -686,7 +700,6 @@
             try {
                 if (!form.content) throw new Error("無表單內容資料");
 
-                // 防止 MySQL 自動解析 JSON 造成的字串錯誤
                 const content = typeof form.content === 'string' ? JSON.parse(form.content) : form.content;
 
                 for (let key in content) {
@@ -744,7 +757,7 @@
                 console.error(err);
                 alert("系統連線異常，簽核處理失敗");
             }
-        }    
+        }
     </script>
 </body>
 

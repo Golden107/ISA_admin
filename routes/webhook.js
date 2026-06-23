@@ -7,7 +7,9 @@ const router = express.Router();
 const LINE_TOKEN = process.env.LINE_TOKEN;
 const LINE_SECRET = process.env.LINE_SECRET;
 
-// 建立標準化 Mega Flex Message 卡片
+const stepRoleMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
+
+// 建立標準化 Mega Flex Message 卡片給主管審核用
 function buildFlexMessage(formId, formName, applicantName, applyDateStr, contentData) {
     const tDict = {
         'payment_amount': '請款金額', 'payee_name': '受款人/廠商', 'payment_reason': '請款事由', 'receipt_file': '憑證檔案',
@@ -87,7 +89,7 @@ function buildFlexMessage(formId, formName, applicantName, applyDateStr, content
     };
 }
 
-// 主動推播給當前關卡主管的功能
+// 主動推播給下一關主管的功能
 async function notifyNextApprovers(applicationId) {
     try {
         const [apps] = await db.query(`
@@ -126,6 +128,41 @@ async function notifyNextApprovers(applicationId) {
     }
 }
 
+// 專屬發送給「申請人」的精美卡片通知
+async function notifyApplicant(lineUserId, formId, formName, status, nextStepNum, comment) {
+    if (!lineUserId || !LINE_TOKEN) return;
+    
+    let title = "", color = "", desc = "";
+    if (status === 'APPROVED_FINAL') {
+        title = "✅ 表單結案通知"; color = "#38A169"; 
+        desc = `您的「${formName}」已完成最終決行，正式結案。`;
+    } else if (status === 'REJECTED') {
+        title = "❌ 申請遭駁回"; color = "#E53E3E"; 
+        desc = `您的「${formName}」已遭到主管駁回。\n\n主管意見：${comment || '無'}`;
+    } else if (status === 'FORWARDED') {
+        title = "⏳ 簽核進度更新"; color = "#D69E2E"; 
+        const nextRoleName = stepRoleMap[nextStepNum] || '下一關主管';
+        desc = `您的「${formName}」已通過審核！\n目前轉交【${nextRoleName}】簽核中。`;
+    }
+
+    const flexMsg = {
+        type: "flex", altText: `【簽核通知】單號 #${formId} 狀態更新`,
+        contents: {
+            type: "bubble", size: "kilo",
+            body: {
+                type: "box", layout: "vertical", spacing: "md", paddingAll: "20px",
+                contents: [
+                    { type: "text", text: title, weight: "bold", color: color, size: "lg" },
+                    { type: "text", text: `單號：#${formId}`, size: "sm", color: "#888888" },
+                    { type: "separator", margin: "md", color: "#E2E8F0" },
+                    { type: "text", text: desc, wrap: true, size: "md", color: "#333333", margin: "md" }
+                ]
+            }
+        }
+    };
+    await sendLineMessage(lineUserId, flexMsg);
+}
+
 router.post('/line', async (req, res) => {
     if (!LINE_SECRET) return res.status(403).send('缺少 LINE_SECRET');
 
@@ -148,7 +185,8 @@ router.post('/line', async (req, res) => {
                 const bindUrl = `${baseUrl}/bind?lineId=${lineUserId}`;
                 await replyLineMessage(event.replyToken, `請點擊下方專屬安全連結，前往網頁進行帳號綁定：\n\n🔗 ${bindUrl}`);
             }
-            else if (text === '待簽核項目') {
+            // 💡 擴充關鍵字，避免圖文選單文字不一致導致沒反應
+            else if (text === '待簽核項目' || text === '簽核中項目') {
                 try {
                     const [users] = await db.query('SELECT role, name FROM users WHERE line_user_id = ?', [lineUserId]);
                     if (users.length === 0) {
@@ -177,7 +215,6 @@ router.post('/line', async (req, res) => {
                     if (forms.length === 0) {
                         await replyLineMessage(event.replyToken, '太棒了！您目前沒有任何待簽核的單據。');
                     } else {
-                        // 產生對應數量的標準卡片，以輪播格式送出
                         const bubbles = forms.map(f => {
                             const contentData = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
                             const applyDateStr = new Date(f.created_at).toLocaleDateString('zh-TW');
@@ -185,8 +222,7 @@ router.post('/line', async (req, res) => {
                         });
 
                         const flexMsg = {
-                            type: "flex",
-                            altText: `您有 ${forms.length} 筆待簽核單據`,
+                            type: "flex", altText: `您有 ${forms.length} 筆待簽核單據`,
                             contents: { type: "carousel", contents: bubbles }
                         };
                         await replyLineMessage(event.replyToken, flexMsg);
@@ -237,9 +273,8 @@ router.post('/line', async (req, res) => {
 
                 if (action === 'REJECT') {
                     await db.query('UPDATE applications SET status = "REJECTED" WHERE id = ?', [formId]);
-                    if (form.applicant_line_id) {
-                        await sendLineMessage(form.applicant_line_id, `【簽核通知】\n您的「${form.form_name}」 (單號 #${formId}) 已遭到駁回。`);
-                    }
+                    // 發送精美卡片給申請者
+                    await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'REJECTED', null, comment);
                     await replyLineMessage(event.replyToken, `已成功駁回單號 #${formId}。`);
                 } else if (action === 'APPROVE') {
                     let nextStep = form.current_step;
@@ -262,18 +297,14 @@ router.post('/line', async (req, res) => {
 
                     if (isFinal) {
                         await db.query('UPDATE applications SET status = "APPROVED" WHERE id = ?', [formId]);
-                        if (form.applicant_line_id) {
-                            await sendLineMessage(form.applicant_line_id, `【簽核通知】\n恭喜！您的「${form.form_name}」 (單號 #${formId}) 已完成最終決行並結案。`);
-                        }
+                        await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'APPROVED_FINAL', null, null);
                         await replyLineMessage(event.replyToken, `單號 #${formId} 已完成最終決行並結案。`);
                     } else {
                         await db.query('UPDATE applications SET current_step = ? WHERE id = ?', [nextStep, formId]);
-                        if (form.applicant_line_id) {
-                            await sendLineMessage(form.applicant_line_id, `【簽核通知】\n您的「${form.form_name}」 (單號 #${formId}) 已通過第 ${form.current_step} 關，轉交下一關審核中。`);
-                        }
+                        await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'FORWARDED', nextStep, null);
                         await replyLineMessage(event.replyToken, `單號 #${formId} 已核准，並轉交下一關主管。`);
 
-                        // 呼叫自動推播給下一關主管！
+                        // 通知下一關主管
                         await notifyNextApprovers(formId);
                     }
                 }
@@ -309,4 +340,4 @@ async function sendLineMessage(lineUserId, messageContent) {
     } catch (err) { console.error('推播失敗', err.response ? JSON.stringify(err.response.data) : err.message); }
 }
 
-module.exports = { router, sendLineMessage, notifyNextApprovers };
+module.exports = { router, sendLineMessage, notifyNextApprovers, notifyApplicant };
