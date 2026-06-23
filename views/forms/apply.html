@@ -321,7 +321,7 @@
             document.querySelectorAll('.dynamic-form').forEach(form => {
                 form.classList.remove('active');
 
-                // 💡 關鍵修正 1：把隱藏表單裡面的欄位全部設為 disabled，FormData 就不會收集它們
+                // 把隱藏表單裡面的欄位全部設為 disabled，FormData 就不會收集它們
                 form.querySelectorAll('input, select, textarea').forEach(input => {
                     input.disabled = true;
                 });
@@ -338,7 +338,7 @@
             if (activeForm) {
                 activeForm.classList.add('active');
 
-                // 💡 關鍵修正 2：把顯示中表單的欄位恢復啟用 (disabled = false)
+                // 把顯示中表單的欄位恢復啟用 (disabled = false)
                 activeForm.querySelectorAll('input, select, textarea').forEach(input => {
                     input.disabled = false;
                 });
@@ -351,8 +351,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const userStr = localStorage.getItem('currentUser');
-            if (!userStr) {
+            // 💡 防護機制：避免之前存到 "undefined" 導致崩潰
+            if (!userStr || userStr === 'undefined') {
                 alert('請先登入系統！');
+                localStorage.removeItem('currentUser');
                 window.location.href = '/';
                 return;
             }
@@ -363,24 +365,32 @@
         document.getElementById('mainApplicationForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
+            // 抓取送出按鈕
+            const submitBtn = this.querySelector('.btn-submit');
             const userStr = localStorage.getItem('currentUser');
-            if (!userStr) {
+
+            // 💡 再次確認登入狀態，防止崩潰
+            if (!userStr || userStr === 'undefined') {
                 alert('登入已失效，請重新登入！');
+                localStorage.removeItem('currentUser');
                 window.location.href = '/';
                 return;
             }
-            const user = JSON.parse(userStr);
-            const formType = document.getElementById('formTypeSelector').value;
 
-            // 💡 關鍵修正 3：使用 FormData 收集資料 (會自動忽略 disabled 的隱藏欄位，並包含實體檔案)
-            const formData = new FormData(document.getElementById('mainApplicationForm'));
-
-            // 補上表單類型與登入者 ID
-            formData.append('formType', formType);
-            formData.append('userId', user.id);
+            // 💡 體驗升級：按鈕變更為送出中，並禁用按鈕防止員工重複連點送出兩張單
+            submitBtn.disabled = true;
+            submitBtn.textContent = '表單傳送中，請稍候... ⏳';
+            submitBtn.style.backgroundColor = '#7A8B9A';
 
             try {
-                // 💡 透過 FormData 發送，絕對不要手動設定 Content-Type，讓瀏覽器自動處理
+                const user = JSON.parse(userStr);
+                const formType = document.getElementById('formTypeSelector').value;
+
+                // 使用 FormData 收集資料
+                const formData = new FormData(this);
+                formData.append('formType', formType);
+                formData.append('userId', user.id);
+
                 const response = await fetch('/api/forms/apply', {
                     method: 'POST',
                     body: formData
@@ -392,10 +402,18 @@
                     window.location.href = '/dashboard';
                 } else {
                     alert('送出失敗：' + result.error);
+                    // 失敗時恢復按鈕狀態
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '送出申請單 ➔';
+                    submitBtn.style.backgroundColor = 'var(--primary-color)';
                 }
             } catch (err) {
-                alert('系統發生錯誤，請稍後再試。');
+                alert('系統發生錯誤，無法連線至伺服器。');
                 console.error(err);
+                // 失敗時恢復按鈕狀態
+                submitBtn.disabled = false;
+                submitBtn.textContent = '送出申請單 ➔';
+                submitBtn.style.backgroundColor = 'var(--primary-color)';
             }
         });
     </script>

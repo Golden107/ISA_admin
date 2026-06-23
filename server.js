@@ -35,9 +35,30 @@ app.get('/apply', (req, res) => {
 app.get('/users', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'users.html'));
 });
+
 // 💡 新增：顯示手機版安全綁定網頁
 app.get('/bind', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'bind.html'));
+});
+
+// 💡 隱藏版功能：一鍵清除所有測試表單紀錄 (上線前記得刪除此段)
+app.get('/api/reset-data', async (req, res) => {
+    try {
+        // 先關閉外鍵檢查，避免因為資料關聯導致無法刪除
+        await db.query('SET FOREIGN_KEY_CHECKS = 0');
+        
+        // TRUNCATE 指令不僅會清空資料，還會把自動遞增的單號 (ID) 歸零，重新從 1 開始
+        await db.query('TRUNCATE TABLE approval_logs');
+        await db.query('TRUNCATE TABLE applications');
+        
+        // 恢復外鍵檢查機制
+        await db.query('SET FOREIGN_KEY_CHECKS = 1');
+        
+        res.send('<h2>✅ 系統清理完成！</h2><p>所有的測試表單與簽核紀錄都已成功刪除，新的單號將會從 #1 重新開始。</p><a href="/dashboard">點此返回系統大廳</a>');
+    } catch (error) {
+        console.error('清除失敗:', error);
+        res.status(500).send('清除失敗，請查看終端機錯誤訊息。');
+    }
 });
 
 // 💡 新增：處理安全綁定的專屬 API

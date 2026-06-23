@@ -26,11 +26,113 @@ router.post('/line', async (req, res) => {
             const text = event.message.text.trim();
 
             if (text.startsWith('綁定')) {
-                // 💡 升級：自動抓取目前的 ngrok 網址，並產生帶有 lineId 的專屬安全連結
                 const baseUrl = `https://${req.headers.host}`;
                 const bindUrl = `${baseUrl}/bind?lineId=${lineUserId}`;
+                await replyLineMessage(event.replyToken, `請點擊下方專屬安全連結，前往網頁進行帳號綁定：\n\n🔗 ${bindUrl}`);
+            }
+            // 💡 升級：處理「待簽核項目」按鈕 -> 輸出左右滑動卡片 (Carousel)
+            else if (text === '待簽核項目') {
+                try {
+                    const [users] = await db.query('SELECT id, role FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return await replyLineMessage(event.replyToken, '請先點擊「綁定」帳號喔！');
 
-                await replyLineMessage(event.replyToken, `請點擊下方專屬安全連結，前往網頁進行帳號綁定（密碼將加密傳輸）：\n\n🔗 ${bindUrl}`);
+                    const role = users[0].role;
+                    if (role === 'EMPLOYEE') return await replyLineMessage(event.replyToken, '您目前是一般員工，沒有待簽核的權限喔！');
+
+                    const stepMap = { 'MANAGER': 1, '櫃檯主任': 1, 'DIRECTOR': 2, 'CISO': 3, 'PRINCIPAL': 4 }; const targetStep = stepMap[role];
+
+                    // 撈取待簽核資料 (加上 JOIN users 取得申請人姓名，限制最多顯示 10 筆以免超出 LINE 限制)
+                    const [forms] = await db.query(`
+                        SELECT a.id, f.name, u.name AS applicant_name, a.created_at 
+                        FROM applications a 
+                        JOIN form_types f ON a.form_type_id = f.id 
+                        JOIN users u ON a.user_id = u.id 
+                        WHERE a.status = 'PENDING' AND a.current_step = ?
+                        ORDER BY a.created_at DESC LIMIT 10
+                    `, [targetStep]);
+
+                    if (forms.length === 0) {
+                        await replyLineMessage(event.replyToken, '🎉 太棒了！您目前沒有任何待簽核的單據。');
+                    } else {
+                        // 製作 Carousel 內的泡泡卡片 (Bubbles)
+                        const bubbles = forms.map(f => ({
+                            type: "bubble",
+                            size: "micro",
+                            header: {
+                                type: "box", layout: "vertical", backgroundColor: "#0F4C81",
+                                contents: [{ type: "text", text: "待簽核", color: "#ffffff", weight: "bold", size: "sm" }]
+                            },
+                            body: {
+                                type: "box", layout: "vertical",
+                                contents: [
+                                    { type: "text", text: f.name, weight: "bold", size: "md", margin: "sm", wrap: true },
+                                    { type: "text", text: `申請人：${f.applicant_name}`, size: "xs", color: "#888888", margin: "sm" },
+                                    { type: "text", text: `單號：#${f.id}`, size: "xs", color: "#888888" }
+                                ]
+                            },
+                            footer: {
+                                type: "box", layout: "vertical", spacing: "sm",
+                                contents: [
+                                    { type: "button", style: "primary", color: "#38A169", height: "sm", action: { type: "postback", label: "✅ 核准", data: `action=APPROVE&formId=${f.id}` } },
+                                    { type: "button", style: "secondary", color: "#E2E8F0", height: "sm", action: { type: "postback", label: "❌ 駁回", data: `action=REJECT&formId=${f.id}` } }
+                                ]
+                            }
+                        }));
+
+                        const flexMsg = {
+                            type: "flex",
+                            altText: `您有 ${forms.length} 筆待簽核單據`,
+                            contents: { type: "carousel", contents: bubbles }
+                        };
+                        await replyLineMessage(event.replyToken, flexMsg);
+                    }
+                } catch (e) { console.error(e); }
+            }
+            // 💡 升級：處理「簽核中項目」按鈕 -> 輸出左右滑動卡片 (Carousel)
+            else if (text === '簽核中項目') {
+                try {
+                    const [users] = await db.query('SELECT id FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return await replyLineMessage(event.replyToken, '請先點擊「綁定」帳號喔！');
+
+                    const [forms] = await db.query(`
+                        SELECT a.id, f.name, a.current_step 
+                        FROM applications a 
+                        JOIN form_types f ON a.form_type_id = f.id 
+                        WHERE a.status = 'PENDING' AND a.user_id = ?
+                        ORDER BY a.created_at DESC LIMIT 10
+                    `, [users[0].id]);
+
+                    if (forms.length === 0) {
+                        await replyLineMessage(event.replyToken, '您目前沒有正在簽核中的申請單喔！');
+                    } else {
+                        const stepNames = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
+
+                        const bubbles = forms.map(f => ({
+                            type: "bubble",
+                            size: "micro",
+                            header: {
+                                type: "box", layout: "vertical", backgroundColor: "#D69E2E",
+                                contents: [{ type: "text", text: "簽核中", color: "#ffffff", weight: "bold", size: "sm" }]
+                            },
+                            body: {
+                                type: "box", layout: "vertical",
+                                contents: [
+                                    { type: "text", text: f.name, weight: "bold", size: "md", margin: "sm", wrap: true },
+                                    { type: "text", text: `單號：#${f.id}`, size: "xs", color: "#888888", margin: "sm" },
+                                    { type: "text", text: `卡在：第${f.current_step}關`, size: "xs", color: "#E53E3E", weight: "bold" },
+                                    { type: "text", text: `(${stepNames[f.current_step] || '未知'})`, size: "xs", color: "#E53E3E" }
+                                ]
+                            }
+                        }));
+
+                        const flexMsg = {
+                            type: "flex",
+                            altText: `您有 ${forms.length} 筆簽核中的單據`,
+                            contents: { type: "carousel", contents: bubbles }
+                        };
+                        await replyLineMessage(event.replyToken, flexMsg);
+                    }
+                } catch (e) { console.error(e); }
             }
         }
         // 🔵 處理「按鈕點擊」(Postback)
@@ -84,17 +186,19 @@ router.post('/line', async (req, res) => {
     }
 });
 
-async function replyLineMessage(replyToken, textMessage) {
+// 💡 升級：讓 replyLineMessage 支援回覆 Flex Message (多頁卡片)
+async function replyLineMessage(replyToken, messageContent) {
     if (!LINE_TOKEN) return;
+    const messagesObj = Array.isArray(messageContent) ? messageContent :
+        (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
     try {
         await axios.post('https://api.line.me/v2/bot/message/reply', {
             replyToken: replyToken,
-            messages: [{ type: 'text', text: textMessage }]
+            messages: messagesObj
         }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } });
-    } catch (err) { console.error('回覆失敗'); }
+    } catch (err) { console.error('回覆失敗', err.response ? JSON.stringify(err.response.data) : err.message); }
 }
 
-// 💡 升級：現在支援傳入 Array，允許一次發送「文字 + 按鈕」兩則對話！
 async function sendLineMessage(lineUserId, messageContent) {
     if (!lineUserId || !LINE_TOKEN) return;
 

@@ -5,16 +5,16 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// 💡 1. 引入 LINE 推播模組
+// 💡 引入 LINE 推播模組
 const { sendLineMessage } = require('./webhook');
 
-// 確保上傳資料夾存在 (儲存在 public/uploads)
+// 確保上傳資料夾存在
 const uploadDir = path.join(__dirname, '../public/uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// 設定 Multer 儲存引擎，自動重新命名避免亂碼與覆蓋
+// 設定 Multer
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadDir);
@@ -36,7 +36,6 @@ router.post('/apply', upload.any(), async (req, res) => {
     const { userId, formType, ...contentData } = req.body;
     const formTypeId = formTypeMapping[formType] || 1;
 
-    // 若有上傳檔案，將檔案的儲存路徑寫入 JSON 內容中
     if (req.files && req.files.length > 0) {
         req.files.forEach(file => {
             contentData[file.fieldname] = `/uploads/${file.filename}`;
@@ -49,59 +48,98 @@ router.post('/apply', upload.any(), async (req, res) => {
             [userId, formTypeId, JSON.stringify(contentData), 'PENDING', 1]
         );
 
-        // 💡 取得剛剛存入資料庫的新單號
         const newFormId = result.insertId;
 
-        // --- 🚀 開始：發送包含「詳細明細」的 LINE 通知 ---
+        // --- 🚀 發送 LINE 通知 ---
         try {
-            const [managers] = await db.query('SELECT line_user_id FROM users WHERE role = "MANAGER" AND line_user_id IS NOT NULL');
-
+            const [managers] = await db.query('SELECT line_user_id FROM users WHERE role IN ("MANAGER", "櫃檯主任") AND line_user_id IS NOT NULL');
             if (managers.length > 0) {
-                // 1. 建立翻譯字典 (與前端大廳相同)
+                // 1. 取得申請人姓名
+                const [uRows] = await db.query('SELECT name FROM users WHERE id = ?', [userId]);
+                const applicantName = uRows.length > 0 ? uRows[0].name : '未知員工';
+                const applyDate = new Date().toLocaleDateString('zh-TW');
+
+                // 2. 建立翻譯字典
                 const tDict = { 'payment_amount': '金額', 'payee_name': '受款人', 'payment_reason': '事由', 'leave_type': '假別', 'substitute': '代理人', 'leave_start': '開始', 'leave_end': '結束', 'leave_reason': '事由', 'document_name': '文件', 'seal_type': '印信', 'seal_copies': '份數', 'seal_reason': '事由', 'item_name': '物品', 'estimated_cost': '預估花費', 'quantity': '數量', 'procurement_reason': '原因', 'withdraw_amount': '金額', 'withdraw_date': '日期', 'withdraw_reason': '用途', 'copy_color': '類型', 'copy_pages': '張數', 'project_class': '專案/班級', 'data_target_type': '對象', 'data_scope': '範圍', 'data_purpose': '目的' };
                 const tVal = { 'annual': '特休', 'sick': '病假', 'personal': '事假', 'official': '公假', 'company': '公司大章', 'representative': '負責小章', 'both': '大小章', 'contract': '合約章', 'black_white': '黑白', 'color': '彩色', 'student': '學生個資', 'parent': '家長個資', 'employee': '員工個資' };
                 const formTypes = { 1: '請款申請', 2: '請假申請', 3: '用印申請', 4: '採購申請', 5: '現金提領', 6: '影印登記', 7: '個資調閱' };
 
-                // 2. 組裝詳細內容文字
-                let detailText = `📄 【${formTypes[formTypeId]}】 單號 #${newFormId}\n---\n`;
+                // 3. 處理表單明細欄位
+                let detailContents = [];
                 for (let key in contentData) {
-                    if (key === 'formType' || key === 'userId') continue;
+                    if (key === 'formType' || key === 'userId' || key === 'data_compliance') continue;
                     let dKey = tDict[key] || key;
                     let dVal = tVal[contentData[key]] || contentData[key];
-                    // 如果是檔案路徑，替換為提示文字
-                    if (typeof dVal === 'string' && dVal.startsWith('/uploads/')) dVal = '(已上傳附件)';
+                    if (typeof dVal === 'string' && dVal.startsWith('/uploads/')) dVal = '(已附電子檔，請至系統查看)';
 
-                    detailText += `▪️ ${dKey}：${dVal}\n`;
+                    detailContents.push({
+                        "type": "box", "layout": "horizontal", "margin": "sm",
+                        "contents": [
+                            { "type": "text", "text": dKey, "size": "sm", "color": "#888888", "flex": 2 },
+                            { "type": "text", "text": String(dVal), "size": "sm", "color": "#333333", "flex": 5, "wrap": true }
+                        ]
+                    });
                 }
 
-                // 3. 組合發送陣列：先送出一則「詳細內容純文字」，再送出一則「按鈕面板」
-                const messagesArray = [
-                    {
-                        type: "text",
-                        text: detailText.trim()
-                    },
-                    {
-                        type: "template",
-                        altText: `您有一筆新的表單待簽核：單號 #${newFormId}`,
-                        template: {
-                            type: "buttons",
-                            text: `請問是否核准單號 #${newFormId}？\n(目前進度：單位主管)`,
-                            actions: [
-                                { type: "postback", label: "✅ 核准", data: `action=APPROVE&formId=${newFormId}` },
-                                { type: "postback", label: "❌ 駁回", data: `action=REJECT&formId=${newFormId}` }
+                // 4. 組裝 Flex Message JSON (💡 已徹底修正：使用 separator 取代 borderBottomWidth)
+                const flexMessage = {
+                    type: "flex",
+                    altText: `新申請單待簽核：單號 #${newFormId}`,
+                    contents: {
+                        "type": "bubble",
+                        "size": "mega",
+                        "header": {
+                            "type": "box", "layout": "vertical", "backgroundColor": "#0F4C81",
+                            "contents": [
+                                { "type": "text", "text": "待簽核任務", "color": "#ffffff", "weight": "bold", "size": "sm" },
+                                { "type": "text", "text": `【${formTypes[formTypeId]}】`, "color": "#ffffff", "weight": "bold", "size": "xl", "margin": "sm" }
+                            ]
+                        },
+                        "body": {
+                            "type": "box", "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "box", "layout": "horizontal", "margin": "md",
+                                    "contents": [
+                                        { "type": "text", "text": "申請人", "size": "sm", "color": "#888888", "flex": 2 },
+                                        { "type": "text", "text": applicantName, "size": "sm", "color": "#0F4C81", "weight": "bold", "flex": 5 }
+                                    ]
+                                },
+                                {
+                                    "type": "box", "layout": "horizontal", "margin": "md",
+                                    "contents": [
+                                        { "type": "text", "text": "申請日期", "size": "sm", "color": "#888888", "flex": 2 },
+                                        { "type": "text", "text": applyDate, "size": "sm", "color": "#333333", "flex": 5 }
+                                    ]
+                                },
+                                {
+                                    "type": "separator", "margin": "lg", "color": "#E2E8F0"
+                                },
+                                {
+                                    "type": "box", "layout": "vertical", "margin": "lg",
+                                    "contents": detailContents
+                                }
+                            ]
+                        },
+                        "footer": {
+                            "type": "box", "layout": "horizontal", "spacing": "sm",
+                            "contents": [
+                                { "type": "button", "style": "primary", "color": "#38A169", "action": { "type": "postback", "label": "✅ 核准", "data": `action=APPROVE&formId=${newFormId}` } },
+                                { "type": "button", "style": "primary", "color": "#E53E3E", "action": { "type": "postback", "label": "❌ 駁回", "data": `action=REJECT&formId=${newFormId}` } }
                             ]
                         }
                     }
-                ];
+                };
 
                 for (let manager of managers) {
-                    await sendLineMessage(manager.line_user_id, messagesArray);
+                    await sendLineMessage(manager.line_user_id, flexMessage);
                 }
             }
         } catch (lineErr) {
             console.error('發送 LINE 通知失敗', lineErr);
         }
-        // --- 🚀 結束：發送 LINE 通知 ---
+        // --- 🚀 結束 ---
+
         res.json({ success: true, message: '表單已成功送出並進入簽核流程！' });
     } catch (error) {
         console.error('資料庫寫入失敗：', error);
@@ -116,7 +154,7 @@ router.get('/pending/:role', async (req, res) => {
     if (role === 'EMPLOYEE') return res.json({ success: true, data: [] });
 
     let targetStep = 0;
-    if (role === 'MANAGER') targetStep = 1;
+    if (role === 'MANAGER' || role === '櫃檯主任') targetStep = 1; 
     if (role === 'DIRECTOR') targetStep = 2;
     if (role === 'CISO') targetStep = 3;
     if (role === 'PRINCIPAL') targetStep = 4;
@@ -153,7 +191,7 @@ router.get('/my-records/:userId', async (req, res) => {
     }
 });
 
-// API: 主管進行簽核 (支援 4 階層嚴謹狀態機)
+// API: 主管進行簽核
 router.post('/:id/review', async (req, res) => {
     const applicationId = req.params.id;
     const { action, comment, approverId } = req.body;
@@ -190,7 +228,6 @@ router.post('/:id/review', async (req, res) => {
 
 // API: 取得所有申請紀錄 (僅限高階主管)
 router.get('/all-records', async (req, res) => {
-    // 從 Header 讀取發送請求者的角色
     const role = req.headers['x-user-role'];
     const allowedRoles = ['PRINCIPAL', 'DIRECTOR', 'CISO'];
 
@@ -211,6 +248,22 @@ router.get('/all-records', async (req, res) => {
     } catch (error) {
         console.error('讀取總表失敗：', error);
         res.status(500).json({ success: false, error: '無法讀取資料' });
+    }
+});
+
+// 💡 大廳圖表所需的統計 API
+router.get('/stats', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT f.name AS label, COUNT(a.id) AS value
+            FROM applications a
+            JOIN form_types f ON a.form_type_id = f.id
+            GROUP BY f.id
+        `);
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        console.error('統計讀取失敗：', error);
+        res.status(500).json({ success: false, error: '無法讀取統計資料' });
     }
 });
 
