@@ -23,6 +23,7 @@ app.get('/apply', (req, res) => { res.sendFile(path.join(__dirname, 'views', 'fo
 app.get('/users', (req, res) => { res.sendFile(path.join(__dirname, 'views', 'users.html')); });
 app.get('/bind', (req, res) => { res.sendFile(path.join(__dirname, 'views', 'bind.html')); });
 
+
 app.get('/api/reset-data', async (req, res) => {
     try {
         await db.query('SET FOREIGN_KEY_CHECKS = 0');
@@ -32,6 +33,23 @@ app.get('/api/reset-data', async (req, res) => {
         res.send('<h2>✅ 系統清理完成！</h2><a href="/dashboard">點此返回系統大廳</a>');
     } catch (error) { res.status(500).send('清除失敗'); }
 });
+
+// 💡 臨時除錯用：用來檢查伺服器上的真實路徑
+app.get('/api/debug-path', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const uploadPath = path.join(__dirname, 'public/uploads');
+    const isUploadDirExist = fs.existsSync(uploadPath);
+
+    res.json({
+        "1. 專案根目錄 (cwd)": process.cwd(),
+        "2. 目前這支檔案的目錄 (__dirname)": __dirname,
+        "3. 系統計算出的上傳資料夾路徑": uploadPath,
+        "4. 上傳資料夾目前是否存在?": isUploadDirExist ? "✅ 存在" : "❌ 不存在"
+    });
+});
+
 
 app.post('/api/bind-line', async (req, res) => {
     const { email, password, lineId } = req.body;
