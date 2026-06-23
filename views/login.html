@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>補教行政系統 | 登入</title>
+    <title>行政簽核系統 | 登入</title>
     <style>
         :root {
             --primary-color: #0F4C81;
@@ -48,7 +48,7 @@
         .login-header h1 {
             color: var(--primary-color);
             font-size: 1.5rem;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .login-header p {
@@ -64,15 +64,15 @@
             display: block;
             margin-bottom: 8px;
             color: var(--text-main);
-            font-weight: 500;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
+            font-weight: bold;
         }
 
         .form-group input {
             width: 100%;
-            padding: 12px 16px;
+            padding: 12px 15px;
             border: 1px solid var(--input-border);
-            border-radius: var(--radius-md);
+            border-radius: 4px;
             font-size: 1rem;
             transition: border-color 0.2s;
         }
@@ -82,24 +82,24 @@
             border-color: var(--primary-color);
         }
 
-        .btn-login {
+        .btn-submit {
             width: 100%;
             padding: 12px;
             background-color: var(--primary-color);
             color: #fff;
             border: none;
-            border-radius: var(--radius-md);
+            border-radius: 4px;
             font-size: 1rem;
-            font-weight: 600;
+            font-weight: bold;
             cursor: pointer;
             transition: background-color 0.2s;
         }
 
-        .btn-login:hover {
+        .btn-submit:hover {
             background-color: var(--primary-hover);
         }
 
-        #error-message {
+        .error-message {
             color: #E53E3E;
             font-size: 0.85rem;
             margin-top: 10px;
@@ -110,37 +110,35 @@
 </head>
 
 <body>
-
     <div class="login-container">
         <div class="login-header">
-            <h1>企業行政管理系統</h1>
-            <p>請輸入您的員工帳號密碼登入</p>
+            <h1>行政簽核系統</h1>
+            <p>請輸入您的員工帳號密碼</p>
         </div>
-
         <form id="loginForm">
             <div class="form-group">
-                <label for="email">員工信箱</label>
-                <input type="email" id="email" required placeholder="name@company.com">
+                <label for="email">電子信箱 (帳號)</label>
+                <input type="email" id="email" required placeholder="請輸入公司信箱">
             </div>
             <div class="form-group">
-                <label for="password">登入密碼</label>
+                <label for="password">系統密碼</label>
                 <input type="password" id="password" required placeholder="請輸入密碼">
             </div>
-            <button type="submit" class="btn-login">登入系統</button>
-            <div id="error-message"></div>
+            <button type="submit" class="btn-submit">登入系統</button>
+            <div id="errorMessage" class="error-message"></div>
         </form>
     </div>
 
     <script>
-        document.querySelector('form').addEventListener('submit', async function (e) {
+        document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
 
-            // 💡 修正 1：正確抓取顯示錯誤訊息的 div
-            const errorDiv = document.getElementById('error-message');
-            errorDiv.style.display = 'none'; // 每次送出前先隱藏錯誤訊息
+            // 隱藏錯誤提示訊息
+            errorDiv.style.display = 'none';
 
             try {
                 const response = await fetch('/api/login', {
@@ -152,20 +150,19 @@
                 });
 
                 const result = await response.json();
-                console.log("後端回傳的資料：", result); // 幫助你在開發者工具看後端到底傳了什麼
 
                 if (result.success) {
-                    // 💡 修正 2：相容 result.user 或 result.data，並確保有抓到東西
+                    // 處理資料相容性，確保取得使用者詳細資料
                     const userData = result.user || result.data;
 
                     if (!userData) {
-                        throw new Error("後端沒有回傳使用者詳細資料 (user/data 欄位為空)");
+                        throw new Error("伺服器未回傳有效的使用者資料");
                     }
 
-                    // 確保資料存在才存入 localStorage
+                    // 將使用者資訊寫入本地儲存區 (Local Storage)
                     localStorage.setItem('currentUser', JSON.stringify(userData));
 
-                    // 導向大廳 (如果後端沒給 redirect 網址，預設去 /dashboard)
+                    // 導向系統大廳頁面
                     window.location.href = result.redirect || '/dashboard';
                 } else {
                     errorDiv.textContent = result.message || '登入失敗，帳號或密碼錯誤';
@@ -173,7 +170,7 @@
                 }
             } catch (err) {
                 console.error('前端請求失敗或資料異常：', err);
-                errorDiv.textContent = err.message || '系統連線錯誤，請確認伺服器已啟動。';
+                errorDiv.textContent = err.message || '系統連線錯誤，請確認伺服器狀態。';
                 errorDiv.style.display = 'block';
             }
         });

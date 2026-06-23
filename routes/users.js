@@ -2,17 +2,16 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// 🛡️ 資安守門員：檢查請求者是否為資安長
+// 權限驗證中介軟體：檢查請求者是否為資安長
 const requireCISO = (req, res, next) => {
-    // 實務上應從 JWT 或 Session 取出，這裡我們先從前端 Header 傳入的 role 來檢查
     const role = req.headers['x-user-role'];
     if (role !== 'CISO') {
-        return res.status(403).json({ success: false, message: '權限不足，僅限資安長執行此操作！' });
+        return res.status(403).json({ success: false, message: '權限不足，僅限資安長執行此系統設定操作。' });
     }
     next();
 };
 
-// 1. 取得所有使用者清單 (不回傳密碼以策安全)
+// API: 取得所有使用者清單 (基於安全性考量，不回傳密碼欄位)
 router.get('/', requireCISO, async (req, res) => {
     try {
         const [users] = await db.query('SELECT id, name, email, role FROM users ORDER BY id DESC');
@@ -22,7 +21,7 @@ router.get('/', requireCISO, async (req, res) => {
     }
 });
 
-// 2. 新增使用者
+// API: 新增使用者
 router.post('/', requireCISO, async (req, res) => {
     const { name, email, password, role } = req.body;
     try {
@@ -33,23 +32,21 @@ router.post('/', requireCISO, async (req, res) => {
         res.json({ success: true, message: '使用者新增成功' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, error: '新增失敗 (信箱可能已重複)' });
+        res.status(500).json({ success: false, error: '新增失敗，請確認該信箱是否已存在' });
     }
 });
 
-// 3. 更新使用者資料與權限
+// API: 更新使用者資料與權限
 router.put('/:id', requireCISO, async (req, res) => {
     const userId = req.params.id;
     const { name, email, password, role } = req.body;
     try {
         if (password) {
-            // 如果有填寫密碼，就連密碼一起更新
             await db.query(
                 'UPDATE users SET name = ?, email = ?, password_hash = ?, role = ? WHERE id = ?',
                 [name, email, password, role, userId]
             );
         } else {
-            // 如果密碼留空，就只更新其他資料
             await db.query(
                 'UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?',
                 [name, email, role, userId]
@@ -57,18 +54,18 @@ router.put('/:id', requireCISO, async (req, res) => {
         }
         res.json({ success: true, message: '資料更新成功' });
     } catch (error) {
-        res.status(500).json({ success: false, error: '更新失敗' });
+        res.status(500).json({ success: false, error: '系統更新失敗' });
     }
 });
 
-// 4. 刪除使用者
+// API: 刪除使用者
 router.delete('/:id', requireCISO, async (req, res) => {
     const userId = req.params.id;
     try {
         await db.query('DELETE FROM users WHERE id = ?', [userId]);
-        res.json({ success: true, message: '使用者已刪除' });
+        res.json({ success: true, message: '使用者刪除成功' });
     } catch (error) {
-        res.status(500).json({ success: false, error: '刪除失敗 (該使用者可能尚有綁定的表單紀錄)' });
+        res.status(500).json({ success: false, error: '刪除失敗，該名員工可能已有關聯之表單紀錄。' });
     }
 });
 

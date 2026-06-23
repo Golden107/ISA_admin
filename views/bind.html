@@ -7,28 +7,26 @@
     <style>
         body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #F4F7F6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         .container { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 350px; text-align: center; }
-        .logo { font-size: 40px; margin-bottom: 10px; }
+        .logo { font-size: 40px; margin-bottom: 10px; color: #0F4C81; }
         h2 { color: #0F4C81; margin-bottom: 5px; font-size: 1.4rem; }
         p { color: #7A8B9A; font-size: 0.9rem; margin-bottom: 25px; }
         .form-group { text-align: left; margin-bottom: 15px; }
         label { display: block; font-size: 0.9rem; color: #333; margin-bottom: 5px; font-weight: bold; }
-        input { width: 100%; padding: 12px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
-        input:focus { outline: none; border-color: #0F4C81; }
-        button { width: 100%; padding: 14px; background: #0F4C81; color: #fff; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .success-msg { display: none; color: #38A169; font-weight: bold; margin-top: 20px; font-size: 1.1rem; }
+        input { width: 100%; padding: 12px; border: 1px solid #E2E8F0; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #0F4C81; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .success-msg { display: none; color: #38A169; font-weight: bold; font-size: 1.1rem; padding: 20px 0; }
     </style>
 </head>
 <body>
-
-    <div class="container" id="bindBox">
-        <div class="logo">🔐</div>
+    <div class="container">
+        <div class="logo">行政簽核系統</div>
         <h2>企業系統 LINE 綁定</h2>
-        <p>請輸入您的員工帳密進行安全連結</p>
-        
+        <p>請輸入您的員工帳號密碼進行安全連結</p>
+
         <form id="bindForm">
             <div class="form-group">
                 <label>員工信箱</label>
-                <input type="email" id="email" required placeholder="name@company.com">
+                <input type="email" id="email" required placeholder="請輸入公司信箱">
             </div>
             <div class="form-group">
                 <label>系統密碼</label>
@@ -36,19 +34,23 @@
             </div>
             <button type="submit">確認綁定</button>
         </form>
-        <div id="successMsg" class="success-msg">🎉 綁定成功！<br><span style="font-size:0.9rem; color:#666; font-weight:normal;">請關閉此網頁並返回 LINE。</span></div>
+
+        <div id="successMsg" class="success-msg">
+            綁定成功！請關閉此網頁並返回 LINE。
+        </div>
     </div>
 
     <script>
-        // 抓取網址上的 lineId
+        // 解析網址參數獲取 LINE ID
         const urlParams = new URLSearchParams(window.location.search);
         const lineId = urlParams.get('lineId');
 
         if(!lineId) {
-            alert('連結無效，請從 LINE 重新點擊！');
+            alert('連結無效，請從 LINE 重新點擊連結。');
             document.getElementById('bindForm').style.display = 'none';
         }
 
+        // 綁定表單提交事件監聽
         document.getElementById('bindForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button');
@@ -68,6 +70,7 @@
 
                 const result = await response.json();
                 if(result.success) {
+                    // 綁定成功後顯示提示訊息
                     document.getElementById('bindForm').style.display = 'none';
                     document.getElementById('successMsg').style.display = 'block';
                 } else {
@@ -76,7 +79,7 @@
                     btn.disabled = false;
                 }
             } catch (err) {
-                alert('系統連線異常！');
+                alert('系統連線異常，請稍後再試。');
                 btn.textContent = '確認綁定';
                 btn.disabled = false;
             }

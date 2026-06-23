@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>行政管理系統 | 權限管理</title>
+    <title>行政簽核系統 | 權限管理</title>
     <style>
-        /* 沿用大廳的視覺變數與基本排版 */
         :root {
             --primary-color: #0F4C81;
             --sidebar-bg: #FFFFFF;
@@ -29,11 +28,47 @@
             color: var(--text-main);
         }
 
+        /* 導覽列與遮罩 (行動裝置專用) */
+        .mobile-header {
+            display: none;
+            background-color: var(--sidebar-bg);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+
+        .hamburger-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--primary-color);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        /* 側邊欄 */
         .sidebar {
             width: 250px;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border-color);
             padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
 
         .sidebar h2 {
@@ -42,51 +77,69 @@
             margin-bottom: 30px;
         }
 
+        .user-profile {
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
         .menu-item {
             display: block;
             padding: 12px 15px;
+            color: var(--text-main);
             text-decoration: none;
-            color: #555;
             border-radius: 6px;
             margin-bottom: 8px;
-            font-weight: 500;
+            transition: background 0.2s;
         }
 
-        .menu-item:hover,
+        .menu-item:hover {
+            background: #F8FAFC;
+        }
+
         .menu-item.active {
-            background: var(--primary-color);
-            color: #fff;
+            background-color: #E2E8F0;
+            color: var(--primary-color);
+            font-weight: bold;
+            border-right: 4px solid var(--primary-color);
         }
 
+        .text-danger {
+            color: #E53E3E;
+            margin-top: auto;
+        }
+
+        /* 主要內容區 */
         .main-content {
             flex: 1;
-            padding: 30px;
+            padding: 40px;
+            overflow-y: auto;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
-        .section-title {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            font-weight: bold;
+        .page-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
         }
 
         .data-table {
             width: 100%;
-            border-collapse: collapse;
             background: #fff;
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-collapse: collapse;
         }
 
         .data-table th,
@@ -98,114 +151,126 @@
 
         .data-table th {
             background: #F8FAFC;
-            color: #64748B;
-            font-weight: 600;
-        }
-
-        .btn {
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
             font-weight: bold;
-            margin-right: 4px;
+            color: #4A5568;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            background: #E2E8F0;
+            color: #4A5568;
+        }
+
+        .btn-action {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
             color: #fff;
+            font-size: 0.85rem;
+            margin-right: 5px;
         }
+        .btn-edit { background: #3182CE; }
+        .btn-delete { background: #E53E3E; }
 
-        .btn-add {
-            background: #38A169;
-            padding: 10px 20px;
-        }
-
-        .btn-edit {
-            background: #3182CE;
-        }
-
-        .btn-delete {
-            background: #E53E3E;
-        }
-
-        /* 表單燈箱樣式 */
-        .modal-overlay {
+        /* 彈出視窗樣式 */
+        .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
 
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal-container {
+        .modal-content {
             background: #fff;
-            width: 400px;
-            padding: 25px;
+            padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 400px;
         }
 
-        .form-group {
-            margin-bottom: 15px;
+        .modal h3 {
+            margin-bottom: 20px;
+            color: var(--primary-color);
         }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
+        
         .modal-actions {
             display: flex;
             justify-content: flex-end;
             gap: 10px;
-            margin-top: 20px;
+            margin-top: 25px;
         }
+        .btn-cancel { background: #A0AEC0; color: #fff; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;}
 
-        .btn-cancel {
-            background: #CBD5E0;
-            color: #333;
+        /* 響應式設定 (RWD) */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .mobile-header { display: flex; }
+            
+            .sidebar {
+                position: fixed;
+                left: -250px;
+                top: 0;
+                height: 100vh;
+                z-index: 999;
+                transition: left 0.3s ease;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            }
+            
+            .sidebar.active { left: 0; }
+            .sidebar-overlay.active { display: block; }
+            
+            .main-content {
+                width: 100%;
+                padding: 20px 15px;
+            }
+
+            .data-table {
+                display: block;
+                overflow-x: auto;
+            }
         }
     </style>
 </head>
 
 <body>
-    <aside class="sidebar">
-        <h2>行政管理系統</h2>
-        <a href="/dashboard" class="menu-item">申請大廳</a>
-        <a href="/apply" class="menu-item">新增表單申請</a>
-        <a href="/users" class="menu-item active" id="menu-users">權限管理 (資安長專用)</a>
-        <a href="#" class="menu-item" onclick="logout()" style="color:#E53E3E; margin-top: 20px;">登出系統</a>
-    </aside>
+    <div class="mobile-header">
+        <h2 style="color: var(--primary-color); font-size: 1.2rem; margin: 0;">行政簽核系統</h2>
+        <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
+    </div>
 
-    <main class="main-content">
-        <div class="header">
-            <h1>系統權限管理</h1>
-            <div>當前使用者：<span id="userName" style="font-weight:bold; color:var(--primary-color);">載入中...</span></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenu()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <h2 class="desktop-only">行政簽核系統</h2>
+        <div class="user-profile">
+            <div id="userName" style="font-weight: bold; color: var(--primary-color);">讀取中...</div>
+            <div id="userRole" style="font-size: 0.85rem; color: #7A8B9A; margin-top: 5px;"></div>
+        </div>
+        <nav>
+            <a href="/dashboard" class="menu-item">大廳首頁</a>
+            <a href="/apply" class="menu-item">填寫申請單</a>
+            <a href="/users" class="menu-item active" id="adminMenu">權限管理</a>
+            <a href="#" class="menu-item text-danger" onclick="logout()" style="margin-top: 30px;">登出系統</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="page-header">
+            <h2>使用者與權限管理</h2>
+            <button class="btn-primary" onclick="openModal()">新增員工帳號</button>
         </div>
 
-        <div class="section-title">
-            <span>使用者名單</span>
-            <button class="btn btn-add" onclick="openModal()">＋ 新增使用者</button>
-        </div>
-
-        <table class="data-table">
+        <table class="data-table" id="usersTable">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -215,150 +280,147 @@
                     <th>操作選項</th>
                 </tr>
             </thead>
-            <tbody id="userList">
-                <tr>
-                    <td colspan="5" style="text-align:center;">載入中...</td>
-                </tr>
+            <tbody>
+                <tr><td colspan="5" style="text-align: center; padding: 20px;">資料載入中...</td></tr>
             </tbody>
         </table>
-    </main>
+    </div>
 
-    <div id="userModal" class="modal-overlay">
-        <div class="modal-container">
-            <h2 id="modalTitle" style="margin-bottom: 20px; color: var(--primary-color);">新增使用者</h2>
+    <div class="modal" id="userModal">
+        <div class="modal-content">
+            <h3 id="modalTitle">新增員工帳號</h3>
             <form id="userForm">
                 <input type="hidden" id="editUserId">
                 <div class="form-group">
                     <label>員工姓名</label>
-                    <input type="text" id="u_name" required placeholder="例如：王小明">
+                    <input type="text" id="u_name" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label>登入信箱 (帳號)</label>
-                    <input type="email" id="u_email" required placeholder="例如：staff@company.com">
+                    <label>電子信箱 (作為登入帳號)</label>
+                    <input type="email" id="u_email" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label>登入密碼 <span id="pwdHint"
-                            style="font-size:0.8rem; font-weight:normal; color:#888;"></span></label>
-                    <input type="password" id="u_password" placeholder="請輸入高強度密碼">
+                    <label>登入密碼</label>
+                    <input type="password" id="u_password" class="form-control" placeholder="若不修改密碼請留白">
                 </div>
                 <div class="form-group">
-                    <label>系統權限角色</label>
-                    <select id="u_role" required>
-                        <option value="EMPLOYEE">一般員工</option>
-                        <option value="MANAGER">櫃檯主任</option>
-                        <option value="DIRECTOR">管理部主任</option>
-                        <option value="CISO">資安長</option>
-                        <option value="PRINCIPAL">班主任</option>
+                    <label>系統角色權限</label>
+                    <select id="u_role" class="form-control" required>
+                        <option value="EMPLOYEE">一般員工 (僅能申請)</option>
+                        <option value="MANAGER">單位主管 (第一關簽核)</option>
+                        <option value="櫃檯主任">櫃檯主任 (第一關簽核)</option>
+                        <option value="DIRECTOR">管理部主任 (第二關簽核)</option>
+                        <option value="CISO">資安長 (個資第三關)</option>
+                        <option value="PRINCIPAL">班主任 (最終決行)</option>
                     </select>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button>
-                    <button type="submit" class="btn btn-add">儲存設定</button>
+                    <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn-primary">儲存設定</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
-        const roleNames = {
-            'EMPLOYEE': '一般員工', 'MANAGER': '櫃檯主任',
-            'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任'
-        };
-
-        // 🛡️ 頁面載入：強制身分驗證
-        document.addEventListener('DOMContentLoaded', async () => {
+        // 初始化與安全驗證
+        document.addEventListener('DOMContentLoaded', () => {
             const userStr = localStorage.getItem('currentUser');
             if (!userStr) {
-                alert('請先登入系統！');
-                return window.location.href = '/';
+                window.location.href = '/';
+                return;
             }
             const user = JSON.parse(userStr);
+            document.getElementById('userName').textContent = user.name;
+            document.getElementById('userRole').textContent = '系統管理員';
 
-            // 如果不是資安長，直接踢回大廳
-            if (user.role !== 'CISO') {
-                alert('⚠️ 存取被拒！您沒有權限進入系統管理後台。');
-                return window.location.href = '/dashboard';
+            // 安全阻擋機制
+            const allowedRoles = ['CISO', 'PRINCIPAL', 'DIRECTOR'];
+            if (!allowedRoles.includes(user.role)) {
+                alert('權限不足，無法進入管理後台。');
+                window.location.href = '/dashboard';
+                return;
             }
 
-            document.getElementById('userName').textContent = `${user.name} (資安長)`;
-            await loadUsers();
+            loadUsers();
         });
 
+        // 手機版選單切換
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+        }
+
+        // 登出系統
         function logout() {
             localStorage.removeItem('currentUser');
             window.location.href = '/';
         }
 
-        // 呼叫 API 取用資料，附帶身分證明 (x-user-role)
-        const fetchAPI = async (url, options = {}) => {
-            const user = JSON.parse(localStorage.getItem('currentUser'));
-            if (!options.headers) options.headers = {};
-            options.headers['x-user-role'] = user.role; // 告訴後端我是資安長
-
-            const response = await fetch(url, options);
-            return response.json();
-        };
-
-        // 讀取列表
-        async function loadUsers() {
-            const tbody = document.getElementById('userList');
+        // 共用 API 呼叫函式
+        async function fetchAPI(url, options = {}) {
             try {
-                const result = await fetchAPI('/api/users');
-                if (result.success) {
-                    tbody.innerHTML = '';
-                    result.data.forEach(u => {
-                        const tr = document.createElement('tr');
-                        // 資安長不能刪除自己，做個保護
-                        const actionHtml = u.role === 'CISO'
-                            ? `<button class="btn btn-edit" onclick='openModal(${JSON.stringify(u)})'>編輯</button>`
-                            : `<button class="btn btn-edit" onclick='openModal(${JSON.stringify(u)})'>編輯</button>
-                               <button class="btn btn-delete" onclick="deleteUser(${u.id})">刪除</button>`;
-
-                        tr.innerHTML = `
-                            <td>${u.id}</td>
-                            <td style="font-weight:bold;">${u.name}</td>
-                            <td>${u.email}</td>
-                            <td><span style="background:#E2E8F0; padding:4px 8px; border-radius:4px; font-size:0.9em;">${roleNames[u.role] || u.role}</span></td>
-                            <td>${actionHtml}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="5" style="color:red; text-align:center;">資料載入失敗</td></tr>';
+                const response = await fetch(url, options);
+                return await response.json();
+            } catch (err) {
+                console.error(err);
+                return { success: false, error: '伺服器連線異常' };
             }
         }
 
-        // 開啟燈箱 (若有傳入資料代表是「編輯」，沒有則是「新增」)
-        function openModal(userData = null) {
-            document.getElementById('userModal').classList.add('active');
-            const form = document.getElementById('userForm');
-
-            if (userData) {
-                // 編輯模式
-                document.getElementById('modalTitle').textContent = '編輯使用者';
-                document.getElementById('editUserId').value = userData.id;
-                document.getElementById('u_name').value = userData.name;
-                document.getElementById('u_email').value = userData.email;
-                document.getElementById('u_role').value = userData.role;
-                document.getElementById('u_password').value = '';
-                document.getElementById('u_password').removeAttribute('required');
-                document.getElementById('pwdHint').textContent = '(若不修改密碼請留白)';
+        // 讀取使用者列表
+        async function loadUsers() {
+            const result = await fetchAPI('/api/users');
+            const tbody = document.querySelector('#usersTable tbody');
+            
+            if (result.success) {
+                const roleMap = {
+                    'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任',
+                    'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任'
+                };
+                
+                tbody.innerHTML = result.data.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.name}</td>
+                        <td>${u.email}</td>
+                        <td><span class="badge">${roleMap[u.role] || u.role}</span></td>
+                        <td>
+                            <button class="btn-action btn-edit" onclick="editUser(${u.id}, '${u.name}', '${u.email}', '${u.role}')">編輯</button>
+                            <button class="btn-action btn-delete" onclick="deleteUser(${u.id})">刪除</button>
+                        </td>
+                    </tr>
+                `).join('');
             } else {
-                // 新增模式
-                form.reset();
-                document.getElementById('modalTitle').textContent = '新增使用者';
-                document.getElementById('editUserId').value = '';
-                document.getElementById('u_password').setAttribute('required', 'true');
-                document.getElementById('pwdHint').textContent = '(必填)';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">資料讀取失敗</td></tr>';
             }
+        }
+
+        // 開啟/關閉 彈出視窗
+        function openModal() {
+            document.getElementById('userModal').style.display = 'flex';
+            document.getElementById('userForm').reset();
+            document.getElementById('editUserId').value = '';
+            document.getElementById('modalTitle').textContent = '新增員工帳號';
+            document.getElementById('u_password').required = true;
         }
 
         function closeModal() {
-            document.getElementById('userModal').classList.remove('active');
+            document.getElementById('userModal').style.display = 'none';
         }
 
-        // 送出表單 (新增 或 修改)
+        // 編輯使用者 (帶入資料)
+        function editUser(id, name, email, role) {
+            openModal();
+            document.getElementById('modalTitle').textContent = '編輯員工帳號';
+            document.getElementById('editUserId').value = id;
+            document.getElementById('u_name').value = name;
+            document.getElementById('u_email').value = email;
+            document.getElementById('u_role').value = role;
+            document.getElementById('u_password').required = false; 
+        }
+
+        // 送出表單資料 (新增 或 修改)
         document.getElementById('userForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('editUserId').value;
@@ -389,7 +451,7 @@
 
         // 刪除使用者
         async function deleteUser(id) {
-            if (!confirm('確定要刪除這位員工嗎？(請注意：若該員工有申請單紀錄，強行刪除可能會導致系統錯誤)')) return;
+            if (!confirm('確定要刪除這位員工嗎？\n(警告：若該員工有相關表單紀錄，強行刪除可能會導致系統資料異常)')) return;
             const result = await fetchAPI(`/api/users/${id}`, { method: 'DELETE' });
             if (result.success) {
                 alert('刪除成功');

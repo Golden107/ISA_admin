@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>補教行政系統 | 申請大廳</title>
+    <title>行政簽核系統 | 系統大廳</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -15,6 +15,7 @@
             --border-color: #E2E8F0;
             --status-pending: #D69E2E;
             --status-approved: #38A169;
+            --status-rejected: #E53E3E;
         }
 
         * {
@@ -31,11 +32,47 @@
             color: var(--text-main);
         }
 
+        /* 導覽列與遮罩 (行動裝置專用) */
+        .mobile-header {
+            display: none;
+            background-color: var(--sidebar-bg);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+
+        .hamburger-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--primary-color);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        /* 側邊欄 */
         .sidebar {
             width: 250px;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border-color);
             padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
 
         .sidebar h2 {
@@ -44,49 +81,88 @@
             margin-bottom: 30px;
         }
 
+        .user-profile {
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
         .menu-item {
             display: block;
             padding: 12px 15px;
+            color: var(--text-main);
             text-decoration: none;
-            color: #555;
             border-radius: 6px;
             margin-bottom: 8px;
-            font-weight: 500;
+            transition: background 0.2s;
         }
 
-        .menu-item:hover,
+        .menu-item:hover {
+            background: #F8FAFC;
+        }
+
         .menu-item.active {
+            background-color: #E2E8F0;
+            color: var(--primary-color);
+            font-weight: bold;
+            border-right: 4px solid var(--primary-color);
+        }
+
+        .text-danger {
+            color: var(--status-rejected);
+            margin-top: auto;
+        }
+
+        /* 主要內容區塊 */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            color: #7A8B9A;
+            font-weight: bold;
+        }
+
+        .tab.active {
             background: var(--primary-color);
             color: #fff;
         }
 
-        .main-content {
-            flex: 1;
-            padding: 30px;
+        .tab-content {
+            display: none;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
-        .section-title {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            font-weight: bold;
+        .tab-content.active {
+            display: block;
         }
 
         .data-table {
             width: 100%;
-            border-collapse: collapse;
             background: #fff;
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-collapse: collapse;
         }
 
         .data-table th,
@@ -98,417 +174,377 @@
 
         .data-table th {
             background: #F8FAFC;
-            color: #64748B;
-            font-weight: 600;
+            font-weight: bold;
+            color: #4A5568;
         }
 
         .badge {
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.85rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
             font-weight: bold;
+            color: #fff;
         }
 
         .badge.pending {
-            background: #FEFCBF;
-            color: var(--status-pending);
+            background: var(--status-pending);
         }
 
         .badge.approved {
-            background: #C6F6D5;
-            color: var(--status-approved);
+            background: var(--status-approved);
         }
 
-        .btn {
-            padding: 8px 15px;
+        .badge.rejected {
+            background: var(--status-rejected);
+        }
+
+        .btn-action {
+            padding: 6px 12px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: bold;
-            margin-right: 4px;
+            color: #fff;
+            font-size: 0.85rem;
+            margin-right: 5px;
         }
 
         .btn-approve {
             background: var(--status-approved);
-            color: #fff;
         }
 
         .btn-reject {
-            background: #E53E3E;
-            color: #fff;
+            background: var(--status-rejected);
         }
 
-        .btn-view {
-            background: #3182CE;
-            color: #fff;
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        /* 燈箱樣式 */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal-container {
+        .chart-card {
             background: #fff;
-            width: 90%;
-            max-width: 550px;
-            max-height: 85vh;
-            overflow-y: auto;
+            padding: 20px;
             border-radius: 8px;
-            padding: 25px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            transform: translateY(-20px);
-            transition: transform 0.3s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
-        .modal-overlay.active .modal-container {
-            transform: translateY(0);
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #7A8B9A;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px dashed var(--border-color);
         }
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
+        /* 響應式設定 (RWD) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
 
-        .modal-title {
-            font-size: 1.2rem;
-            color: var(--primary-color);
-            font-weight: bold;
-        }
+            .mobile-header {
+                display: flex;
+            }
 
-        .btn-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #999;
-        }
+            .sidebar {
+                position: fixed;
+                left: -250px;
+                top: 0;
+                height: 100vh;
+                z-index: 999;
+                transition: left 0.3s ease;
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            }
 
-        .detail-row {
-            margin-bottom: 12px;
-            line-height: 1.5;
-            border-bottom: 1px dashed #eee;
-            padding-bottom: 10px;
-        }
+            .sidebar.active {
+                left: 0;
+            }
 
-        .detail-label {
-            font-weight: bold;
-            color: #555;
-            display: inline-block;
-            width: 130px;
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .main-content {
+                width: 100%;
+                padding: 20px 15px;
+            }
+
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
         }
     </style>
 </head>
 
 <body>
-    <aside class="sidebar">
-        <h2>行政管理系統</h2>
-        <a href="/dashboard" class="menu-item active">申請大廳</a>
-        <a href="/apply" class="menu-item">新增表單申請</a>
-        <a href="/users" class="menu-item" id="menu-users" style="display: none;">權限管理 (資安長專用)</a>
-        <a href="#" class="menu-item" onclick="logout()" style="color:#E53E3E; margin-top: 20px;">登出系統</a>
-    </aside>
+    <div class="mobile-header">
+        <h2 style="color: var(--primary-color); font-size: 1.2rem; margin: 0;">行政簽核系統</h2>
+        <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
+    </div>
 
-    <main class="main-content">
-        <div class="header">
-            <h1>工作面板</h1>
-            <div>當前使用者：<span id="userName" style="font-weight:bold; color:var(--primary-color);">載入中...</span></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenu()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <h2 class="desktop-only">行政簽核系統</h2>
+        <div class="user-profile">
+            <div id="userName" style="font-weight: bold; color: var(--primary-color);">讀取中...</div>
+            <div id="userRole" style="font-size: 0.85rem; color: #7A8B9A; margin-top: 5px;"></div>
+        </div>
+        <nav>
+            <a href="/dashboard" class="menu-item active">大廳首頁</a>
+            <a href="/apply" class="menu-item">填寫申請單</a>
+            <a href="/users" class="menu-item" id="adminMenu" style="display: none;">權限管理</a>
+            <a href="#" class="menu-item text-danger" onclick="logout()" style="margin-top: 30px;">登出系統</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="dashboard-header">
+            <h1>系統大廳</h1>
         </div>
 
-        <div class="chart-container"
-            style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
-            <h3 class="section-title">系統表單比例分佈</h3>
-            <div style="position: relative; height: 250px; width: 100%;">
-                <canvas id="typeChart"></canvas>
+        <div id="overviewSection" style="display: none;">
+            <h3 style="margin-bottom: 15px; color: #4A5568;">全公司申請單總覽</h3>
+            <div class="charts-container">
+                <div class="chart-card">
+                    <canvas id="typeChart"></canvas>
+                </div>
+                <div class="chart-card" style="max-height: 300px; overflow-y: auto;">
+                    <table class="data-table" id="allRecordsTable">
+                        <thead>
+                            <tr>
+                                <th>單號</th>
+                                <th>申請人</th>
+                                <th>表單類型</th>
+                                <th>狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <div id="allRecordsSection"
-            style="display: none; background: #eef2f6; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-            <h3 class="section-title" style="color: var(--primary-color);">🏢 全公司申請單總覽 (高階主管專區)</h3>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>單號</th>
-                        <th>申請人</th>
-                        <th>表單類型</th>
-                        <th>申請日期</th>
-                        <th>進度狀態</th>
-                        <th>明細</th>
-                    </tr>
-                </thead>
-                <tbody id="allRecordsList"></tbody>
-            </table>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('pending')">待我簽核</div>
+            <div class="tab" onclick="switchTab('history')">我的申請紀錄</div>
         </div>
 
-        <div id="approvalSection">
-            <h3 class="section-title">待我簽核的任務</h3>
-            <table class="data-table">
+        <div id="pending-tab" class="tab-content active">
+            <table class="data-table" id="pendingTable">
                 <thead>
                     <tr>
                         <th>單號</th>
                         <th>申請人</th>
                         <th>表單類型</th>
-                        <th>申請日期</th>
+                        <th>申請時間</th>
                         <th>操作</th>
                     </tr>
                 </thead>
-                <tbody id="approvalList"></tbody>
+                <tbody>
+                    <tr>
+                        <td colspan="5" class="empty-state">資料讀取中...</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
 
-        <h3 class="section-title">我的申請紀錄</h3>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>單號</th>
-                    <th>表單類型</th>
-                    <th>送出日期</th>
-                    <th>目前進度</th>
-                    <th>明細</th>
-                </tr>
-            </thead>
-            <tbody id="myRecordsList"></tbody>
-        </table>
-    </main>
-
-    <div id="detailModal" class="modal-overlay">
-        <div class="modal-container">
-            <div class="modal-header">
-                <div class="modal-title" id="modalTitle">單據明細</div>
-                <button class="btn-close" onclick="closeModal()">×</button>
-            </div>
-            <div id="modalBody"></div>
+        <div id="history-tab" class="tab-content">
+            <table class="data-table" id="historyTable">
+                <thead>
+                    <tr>
+                        <th>單號</th>
+                        <th>表單類型</th>
+                        <th>申請時間</th>
+                        <th>目前進度</th>
+                        <th>最終狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" class="empty-state">資料讀取中...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        // 💡 建立全域變數與中英文對照翻譯字典
-        let allFormsData = {};
-
-        const translateDict = {
-            // 欄位名稱翻譯
-            'payment_amount': '請款金額 (NT$)', 'payee_name': '受款人/廠商名稱', 'payment_reason': '請款事由說明', 'receipt_image': '收據/發票影像',
-            'leave_type': '假別', 'substitute': '代理人', 'leave_start': '起始時間', 'leave_end': '結束時間', 'leave_reason': '請假事由',
-            'document_name': '文件名稱', 'seal_type': '印信種類', 'seal_copies': '用印份數', 'seal_reason': '用印事由與文件摘要', 'document_file': '上傳文件電子檔',
-            'item_name': '物品名稱', 'estimated_cost': '預估總金額 (NT$)', 'quantity': '數量', 'supplier_link': '參考網址/供應商', 'procurement_reason': '採購原因與規格說明',
-            'withdraw_amount': '提領金額 (NT$)', 'withdraw_date': '預計提領日期', 'withdraw_reason': '提款用途說明',
-            'copy_color': '影印類型', 'copy_pages': '總張數', 'project_class': '歸屬專案 / 班級',
-            'data_target_type': '調閱對象類別', 'data_scope': '調閱範圍/條件', 'data_purpose': '調閱目的與用途', 'data_compliance': '同意資安規範',
-            // 欄位內容值翻譯
-            'annual': '特休/年假', 'sick': '病假', 'personal': '事假', 'official': '公假',
-            'company': '公司大章', 'representative': '負責人小章', 'both': '大小章', 'contract': '合約專用章',
-            'black_white': '黑白', 'color': '彩色',
-            'student': '學生個資', 'parent': '家長個資', 'employee': '員工個資',
-            'on': '是 / 已同意'
-        };
-
-        const t = (text) => translateDict[text] || text;
-
-        function logout() {
-            localStorage.removeItem('currentUser');
-            window.location.href = '/';
-        }
-
-        document.addEventListener('DOMContentLoaded', async () => {
+        // 初始化與權限驗證
+        document.addEventListener('DOMContentLoaded', () => {
             const userStr = localStorage.getItem('currentUser');
-
-            if (!userStr || userStr === 'undefined') {
-                localStorage.removeItem('currentUser');
+            if (!userStr) {
                 window.location.href = '/';
                 return;
             }
 
             const user = JSON.parse(userStr);
+            document.getElementById('userName').textContent = user.name;
 
-            const roleMapping = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
-            document.getElementById('userName').textContent = `${user.name} (${roleMapping[user.role] || user.role})`;
+            const roleMap = {
+                'EMPLOYEE': '一般員工',
+                'MANAGER': '單位主管',
+                'DIRECTOR': '管理部主任',
+                'CISO': '資安長',
+                'PRINCIPAL': '班主任'
+            };
+            document.getElementById('userRole').textContent = roleMap[user.role] || user.role;
 
-            if (user.role === 'CISO') document.getElementById('menu-users').style.display = 'block';
-
-            if (user.role === 'EMPLOYEE') document.getElementById('approvalSection').style.display = 'none';
-            else await loadPendingForms(user.role);
-
-            if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) {
-                document.getElementById('allRecordsSection').style.display = 'block';
-                await loadAllRecords(user.role);
+            if (['PRINCIPAL', 'CISO', 'DIRECTOR'].includes(user.role)) {
+                document.getElementById('overviewSection').style.display = 'block';
+                document.getElementById('adminMenu').style.display = 'block';
+                loadStats();
+                loadAllRecords();
             }
 
-            await loadMyRecords(user.id);
-            await loadChart();
+            loadPendingForms(user.role);
+            loadMyRecords(user.id);
         });
 
-        async function loadChart() {
-            try {
-                const response = await fetch('/api/forms/stats');
-                const result = await response.json();
-                if (result.success && result.data.length > 0) {
-                    new Chart(document.getElementById('typeChart').getContext('2d'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: result.data.map(i => i.label),
-                            datasets: [{ data: result.data.map(i => i.value), backgroundColor: ['#3182CE', '#E53E3E', '#D69E2E', '#38A169', '#805AD5'] }]
-                        }
-                    });
-                }
-            } catch (e) { console.error(e); }
+        // 手機版選單切換
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
         }
 
+        // 登出系統
+        function logout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = '/';
+        }
+
+        // 頁籤切換邏輯
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabId + '-tab').classList.add('active');
+        }
+
+        // 載入待簽核表單
         async function loadPendingForms(role) {
-            const tbody = document.getElementById('approvalList');
-            const response = await fetch(`/api/forms/pending/${role}`);
-            const result = await response.json();
-            if (result.success) {
-                tbody.innerHTML = result.data.length ? '' : '<tr><td colspan="5" style="text-align:center;">目前無任務</td></tr>';
-                result.data.forEach(form => {
-                    allFormsData[form.application_id] = form; // 存入總資料庫
-                    tbody.innerHTML += `<tr><td>#${form.application_id}</td><td>${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td><td><button class="btn btn-view" onclick="openModal(${form.application_id})">查看</button><button class="btn btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button><button class="btn btn-reject" onclick="reviewForm(${form.application_id}, 'REJECT')">駁回</button></td></tr>`;
-                });
+            const tbody = document.querySelector('#pendingTable tbody');
+            if (role === 'EMPLOYEE') {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">一般員工無簽核權限</td></tr>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/forms/pending/${role}`);
+                const result = await response.json();
+
+                if (result.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">目前無待簽核項目</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = result.data.map(form => `
+                    <tr>
+                        <td>#${form.application_id}</td>
+                        <td>${form.applicant_name}</td>
+                        <td>${form.form_type_name}</td>
+                        <td>${new Date(form.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn-action btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button>
+                            <button class="btn-action btn-reject" onclick="reviewForm(${form.application_id}, 'REJECT')">駁回</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">資料讀取失敗</td></tr>';
             }
         }
 
-        async function loadAllRecords(userRole) {
-            const tbody = document.getElementById('allRecordsList');
-            try {
-                const response = await fetch(`/api/forms/all-records`, { headers: { 'x-user-role': userRole } });
-                const result = await response.json();
-
-                if (result.success) {
-                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="6" style="text-align:center;">目前無任何申請紀錄</td></tr>' : '';
-                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已結案</span>', 'REJECTED': '<span class="badge" style="background:#FED7D7; color:#C53030;">被駁回</span>' };
-                    const stepMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
-
-                    result.data.forEach(form => {
-                        allFormsData[form.application_id] = form; // 存入總資料庫
-                        let progressText = form.status === 'PENDING' ? ` (卡在: ${stepMap[form.current_step] || '完成'})` : '';
-                        tbody.innerHTML += `
-                            <tr>
-                                <td>#${form.application_id}</td>
-                                <td style="font-weight:bold;">${form.applicant_name}</td>
-                                <td>${form.form_type_name}</td>
-                                <td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td>
-                                <td>${statusMap[form.status]} ${progressText}</td>
-                                <td><button class="btn btn-view" onclick="openModal(${form.application_id})">看內容</button></td>
-                            </tr>
-                        `;
-                    });
-                }
-            } catch (err) { console.error("無法載入總表", err); }
-        }
-
+        // 載入個人申請紀錄
         async function loadMyRecords(userId) {
-            const tbody = document.getElementById('myRecordsList');
+            const tbody = document.querySelector('#historyTable tbody');
             try {
                 const response = await fetch(`/api/forms/my-records/${userId}`);
                 const result = await response.json();
 
-                if (result.success) {
-                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="5" style="text-align:center;">目前無申請紀錄</td></tr>' : '';
-                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已核准</span>', 'REJECTED': '<span class="badge" style="background:#FED7D7; color:#C53030;">已駁回</span>' };
-
-                    result.data.forEach(record => {
-                        allFormsData[record.application_id] = record; // 存入總資料庫
-                        tbody.innerHTML += `
-                            <tr>
-                                <td>#${record.application_id}</td>
-                                <td>${record.form_type_name}</td>
-                                <td>${new Date(record.created_at).toLocaleDateString('zh-TW')}</td>
-                                <td>${statusMap[record.status] || record.status}</td>
-                                <td><button class="btn btn-view" onclick="openModal(${record.application_id})">看內容</button></td>
-                            </tr>
-                        `;
-                    });
-                }
-            } catch (err) { console.error("無法載入申請紀錄", err); }
-        }
-
-        // 💡 視覺化燈箱與翻譯邏輯
-        function openModal(id) {
-            const form = allFormsData[id];
-            if (!form) return;
-
-            document.getElementById('modalTitle').textContent = `申請單明細 #${form.application_id}`;
-            const body = document.getElementById('modalBody');
-            body.innerHTML = '';
-
-            // --- 繪製進度條 (動態計算通過關卡) ---
-            const steps = ['單位主管', '管理部主任', '資安長', '班主任'];
-            let progressHtml = `
-            <div style="margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #E2E8F0;">
-                <div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-color);">表單簽核進度：</div>
-                <div style="display:flex; justify-content:space-between; text-align:center; position: relative;">
-                    <div style="position: absolute; top: 12px; left: 10%; right: 10%; height: 2px; background: #E2E8F0; z-index: 1;"></div>`;
-
-            steps.forEach((stepName, index) => {
-                let stepNum = index + 1;
-                let statusColor = '#A0AEC0'; // 預設灰 (未到)
-                let icon = '⏳';
-
-                if (form.status === 'REJECTED' && form.current_step === stepNum) {
-                    statusColor = '#E53E3E'; icon = '❌'; // 駁回點
-                } else if (form.status === 'APPROVED' || form.current_step > stepNum) {
-                    statusColor = '#38A169'; icon = '✅'; // 已通過
-                } else if (form.status === 'PENDING' && form.current_step === stepNum) {
-                    statusColor = '#D69E2E'; icon = '✍️'; // 當前卡關
+                if (result.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">尚無申請紀錄</td></tr>';
+                    return;
                 }
 
-                progressHtml += `
-                    <div style="z-index: 2; background: #fff; padding: 0 5px; color: ${statusColor}; font-weight: bold; font-size: 0.85rem;">
-                        <div style="font-size: 1.2rem;">${icon}</div>
-                        <div style="margin-top: 5px;">第${stepNum}關<br>${stepName}</div>
-                    </div>`;
-            });
-            progressHtml += `</div></div>`;
-            body.innerHTML += progressHtml;
-
-            // --- 繪製翻譯後的表單內容 ---
-            try {
-                // 如果後端尚未補上 a.content，這裡會產生 undefined 錯誤，用 catch 捕捉
-                if (!form.content) throw new Error("無表單內容資料");
-
-                const content = JSON.parse(form.content);
-                for (let key in content) {
-                    // 跳過系統隱藏欄位
-                    if (key === 'formType' || key === 'userId') continue;
-
-                    let displayKey = t(key);
-                    let displayVal = t(content[key]);
-
-                    if (typeof content[key] === 'string' && content[key].startsWith('/uploads/')) {
-                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}：</span><a href="${content[key]}" target="_blank" style="color:var(--primary-color); font-weight:bold;">📄 [點此預覽附件]</a></div>`;
-                    } else {
-                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}：</span>${displayVal}</div>`;
-                    }
-                }
-            } catch (e) {
-                body.innerHTML += `<div class="detail-row" style="color:red;">請確認後端已更新 API 以回傳表單內容 (a.content)。</div>`;
+                tbody.innerHTML = result.data.map(form => `
+                    <tr>
+                        <td>#${form.application_id}</td>
+                        <td>${form.form_type_name}</td>
+                        <td>${new Date(form.created_at).toLocaleDateString()}</td>
+                        <td>第 ${form.current_step} 關</td>
+                        <td><span class="badge ${form.status.toLowerCase()}">${getStatusText(form.status)}</span></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">資料讀取失敗</td></tr>';
             }
-
-            document.getElementById('detailModal').classList.add('active');
         }
 
-        function closeModal() { document.getElementById('detailModal').classList.remove('active'); }
+        // 載入全公司紀錄 (主管專用)
+        async function loadAllRecords() {
+            const userStr = localStorage.getItem('currentUser');
+            const user = JSON.parse(userStr);
+            const tbody = document.querySelector('#allRecordsTable tbody');
 
+            try {
+                const response = await fetch('/api/forms/all-records', {
+                    headers: { 'x-user-role': user.role }
+                });
+                const result = await response.json();
+
+                tbody.innerHTML = result.data.map(form => `
+                    <tr>
+                        <td>#${form.application_id}</td>
+                        <td>${form.applicant_name}</td>
+                        <td>${form.form_type_name}</td>
+                        <td><span class="badge ${form.status.toLowerCase()}">${getStatusText(form.status)}</span></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-state">資料讀取失敗</td></tr>';
+            }
+        }
+
+        // 載入統計圖表 (主管專用)
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/forms/stats');
+                const result = await response.json();
+
+                const labels = result.data.map(d => d.label);
+                const values = result.data.map(d => d.value);
+
+                new Chart(document.getElementById('typeChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: values,
+                            backgroundColor: ['#0F4C81', '#38A169', '#D69E2E', '#E53E3E', '#805AD5', '#3182CE']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'right' },
+                            title: { display: true, text: '各類表單申請比例' }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("圖表載入失敗", err);
+            }
+        }
+
+        // 表單簽核處理
         async function reviewForm(id, action) {
             const actionText = action === 'APPROVE' ? '核准' : '駁回';
             if (!confirm(`確定要「${actionText}」這張表單嗎？`)) return;
@@ -534,21 +570,25 @@
                 const result = await response.json();
                 if (result.success) {
                     alert(result.message);
-
                     loadPendingForms(user.role);
                     if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) {
                         loadAllRecords(user.role);
                     }
                     loadMyRecords(user.id);
-
                 } else {
                     alert("簽核失敗：" + result.error);
                 }
             } catch (err) {
                 console.error(err);
-                alert("系統連線異常，簽核失敗");
+                alert("系統連線異常，簽核失敗。");
             }
-        }    
+        }
+
+        // 狀態文字轉換
+        function getStatusText(status) {
+            const map = { 'PENDING': '簽核中', 'APPROVED': '已結案', 'REJECTED': '已駁回' };
+            return map[status] || status;
+        }
     </script>
 </body>
 

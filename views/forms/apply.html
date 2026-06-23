@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>行政申請系統 | 填寫表單</title>
+    <title>行政簽核系統 | 填寫申請單</title>
     <style>
-        /* (這裡的 CSS 完全沒有變動，保持您原本的完美設計) */
         :root {
             --primary-color: #0F4C81;
+            --sidebar-bg: #FFFFFF;
             --bg-color: #F8FAFC;
             --card-bg: #FFFFFF;
             --text-main: #334155;
@@ -26,11 +26,102 @@
         }
 
         body {
+            display: flex;
             background-color: var(--bg-color);
             color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* 導覽列與遮罩 (行動裝置專用) */
+        .mobile-header {
+            display: none;
+            background-color: var(--sidebar-bg);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+
+        .hamburger-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--primary-color);
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        /* 側邊欄 */
+        .sidebar {
+            width: 250px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar h2 {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+
+        .user-profile {
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 15px;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            transition: background 0.2s;
+        }
+
+        .menu-item:hover {
+            background: #F8FAFC;
+        }
+
+        .menu-item.active {
+            background-color: #E2E8F0;
+            color: var(--primary-color);
+            font-weight: bold;
+            border-right: 4px solid var(--primary-color);
+        }
+
+        .text-danger {
+            color: #E53E3E;
+            margin-top: auto;
+        }
+
+        /* 主要內容區與表單樣式 */
+        .main-content {
+            flex: 1;
             padding: 40px 20px;
             display: flex;
             justify-content: center;
+            align-items: flex-start;
+            overflow-y: auto;
         }
 
         .form-container {
@@ -39,29 +130,18 @@
             max-width: 600px;
             padding: 30px;
             border-radius: var(--radius-md);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
 
-        h2 {
+        .form-header {
             border-bottom: 2px solid var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            color: var(--primary-color);
-        }
-
-        .form-selector {
+            padding-bottom: 15px;
             margin-bottom: 25px;
         }
 
-        .form-selector select {
-            width: 100%;
-            padding: 12px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            border: 2px solid var(--primary-color);
-            border-radius: var(--radius-md);
+        .form-header h2 {
             color: var(--primary-color);
-            cursor: pointer;
+            font-size: 1.5rem;
         }
 
         .form-group {
@@ -70,63 +150,32 @@
 
         .form-group label {
             display: block;
-            font-weight: 600;
             margin-bottom: 8px;
+            font-weight: 600;
             font-size: 0.95rem;
         }
 
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
+        .form-control {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
             font-size: 1rem;
-            transition: all 0.2s;
+            transition: all 0.3s;
         }
 
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
+        .form-control:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px var(--input-focus);
         }
 
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .row {
-            display: flex;
-            gap: 15px;
-        }
-
-        .row .form-group {
-            flex: 1;
-        }
-
-        .dynamic-form {
-            display: none;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .dynamic-form.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(5px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .dynamic-fields {
+            background-color: #F8FAFC;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
         }
 
         .btn-submit {
@@ -135,258 +184,230 @@
             background-color: var(--primary-color);
             color: white;
             border: none;
-            border-radius: var(--radius-md);
+            border-radius: 6px;
             font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 10px;
+            transition: background-color 0.2s;
         }
 
         .btn-submit:hover {
-            background-color: #0c3e6a;
+            background-color: #165b99;
         }
 
-        .file-upload-hint {
-            font-size: 0.85rem;
-            color: var(--text-light);
-            margin-top: 5px;
-        }
+        /* 響應式設定 (RWD) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
 
-        /* 增加一個返回大廳的按鈕樣式 */
-        .btn-back {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: bold;
-        }
+            .mobile-header {
+                display: flex;
+            }
 
-        .btn-back:hover {
-            text-decoration: underline;
+            .sidebar {
+                position: fixed;
+                left: -250px;
+                top: 0;
+                height: 100vh;
+                z-index: 999;
+                transition: left 0.3s ease;
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+
+            .main-content {
+                padding: 20px 15px;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
         }
     </style>
 </head>
 
 <body>
+    <div class="mobile-header">
+        <h2 style="color: var(--primary-color); font-size: 1.2rem; margin: 0;">行政簽核系統</h2>
+        <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
+    </div>
 
-    <div class="form-container">
-        <a href="/dashboard" class="btn-back">⬅ 返回大廳</a>
-        <h2>新增申請單</h2>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenu()"></div>
 
-        <div class="form-selector">
-            <select id="formTypeSelector" onchange="switchForm()">
-                <option value="payment">請款申請</option>
-                <option value="leave">請假申請</option>
-                <option value="seal">用印申請</option>
-                <option value="procurement">採購申請</option>
-                <option value="cash_withdraw">現金提領申請</option>
-                <option value="copy_record">影印登記</option>
-                <option value="data_access">個資調閱申請</option>
-            </select>
+    <div class="sidebar" id="sidebar">
+        <h2 class="desktop-only">行政簽核系統</h2>
+        <div class="user-profile">
+            <div id="userName" style="font-weight: bold; color: var(--primary-color);">讀取中...</div>
+            <div id="userRole" style="font-size: 0.85rem; color: #7A8B9A; margin-top: 5px;"></div>
         </div>
+        <nav>
+            <a href="/dashboard" class="menu-item">大廳首頁</a>
+            <a href="/apply" class="menu-item active">填寫申請單</a>
+            <a href="/users" class="menu-item" id="adminMenu" style="display: none;">權限管理</a>
+            <a href="#" class="menu-item text-danger" onclick="logout()" style="margin-top: 30px;">登出系統</a>
+        </nav>
+    </div>
 
-        <form id="mainApplicationForm">
-            <div id="payment-form" class="dynamic-form active">
-                <div class="row">
-                    <div class="form-group"><label>請款金額 (NT$)</label><input type="number" name="payment_amount"
-                            placeholder="例如: 1500" min="0"></div>
-                    <div class="form-group"><label>受款人/廠商名稱</label><input type="text" name="payee_name"
-                            placeholder="請輸入廠商名稱"></div>
-                </div>
-                <div class="form-group"><label>請款事由說明</label><textarea name="payment_reason"
-                        placeholder="請詳細說明請款用途（如：購買A4影印紙兩箱）"></textarea></div>
-                <div class="form-group"><label>上傳收據/發票影像</label><input type="file" name="receipt_image"
-                        accept="image/*,application/pdf">
-                    <div class="file-upload-hint">支援 JPG, PNG 格式。後續可點擊縮圖開啟燈箱預覽。</div>
-                </div>
+    <div class="main-content">
+        <div class="form-container">
+            <div class="form-header">
+                <h2>建立新申請單</h2>
+                <p style="color: var(--text-light); font-size: 0.9rem; margin-top: 5px;">請選擇表單類型並填寫相關明細</p>
             </div>
 
-            <div id="leave-form" class="dynamic-form">
-                <div class="row">
-                    <div class="form-group">
-                        <label>假別</label>
-                        <select name="leave_type">
-                            <option value="annual">特休/年假</option>
-                            <option value="sick">病假</option>
-                            <option value="personal">事假</option>
-                            <option value="official">公假</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label>代理人</label><input type="text" name="substitute"
-                            placeholder="請輸入職務代理人"></div>
-                </div>
-                <div class="row">
-                    <div class="form-group"><label>起始時間</label><input type="datetime-local" name="leave_start"></div>
-                    <div class="form-group"><label>結束時間</label><input type="datetime-local" name="leave_end"></div>
-                </div>
-                <div class="form-group"><label>請假事由</label><textarea name="leave_reason"
-                        placeholder="請簡述請假原因"></textarea></div>
-            </div>
-
-            <div id="seal-form" class="dynamic-form">
-                <div class="form-group"><label>文件名稱</label><input type="text" name="document_name"
-                        placeholder="例如：與ＯＯ公司之合作備忘錄"></div>
-                <div class="row">
-                    <div class="form-group">
-                        <label>印信種類</label>
-                        <select name="seal_type">
-                            <option value="company">公司大章</option>
-                            <option value="representative">負責人小章</option>
-                            <option value="both">大小章</option>
-                            <option value="contract">合約專用章</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label>用印份數</label><input type="number" name="seal_copies" value="1"
-                            min="1"></div>
-                </div>
-                <div class="form-group"><label>用印事由與文件摘要</label><textarea name="seal_reason"
-                        placeholder="請說明合約/文件之重點內容"></textarea></div>
-                <div class="form-group"><label>上傳文件電子檔 (供主管審閱)</label><input type="file" name="document_file"
-                        accept="application/pdf"></div>
-            </div>
-
-            <div id="procurement-form" class="dynamic-form">
-                <div class="row">
-                    <div class="form-group"><label>物品名稱</label><input type="text" name="item_name"
-                            placeholder="例如：A4 影印紙"></div>
-                    <div class="form-group"><label>預估總金額 (NT$)</label><input type="number" name="estimated_cost"
-                            placeholder="請輸入預估花費" min="0"></div>
-                </div>
-                <div class="row">
-                    <div class="form-group"><label>數量</label><input type="number" name="quantity" value="1" min="1">
-                    </div>
-                    <div class="form-group"><label>參考網址/供應商</label><input type="text" name="supplier_link"
-                            placeholder="貼上商品連結或廠商名稱"></div>
-                </div>
-                <div class="form-group"><label>採採購原因與規格說明</label><textarea name="procurement_reason"
-                        placeholder="請詳細說明為什麼需要採購此物品，以及相關規格限制"></textarea></div>
-            </div>
-
-            <div id="cash_withdraw-form" class="dynamic-form">
-                <div class="row">
-                    <div class="form-group"><label>提領金額 (NT$)</label><input type="number" name="withdraw_amount"
-                            placeholder="例如: 5000" min="1"></div>
-                    <div class="form-group"><label>預計提領日期</label><input type="date" name="withdraw_date"></div>
-                </div>
-                <div class="form-group"><label>提款用途說明</label><textarea name="withdraw_reason"
-                        placeholder="請說明需提領現金之具體用途 (例如：發放講師車馬費、零用金備用)"></textarea></div>
-            </div>
-
-            <div id="copy_record-form" class="dynamic-form">
-                <div class="row">
-                    <div class="form-group"><label>影印類型</label><select name="copy_color">
-                            <option value="black_white">黑白</option>
-                            <option value="color">彩色</option>
-                        </select></div>
-                    <div class="form-group"><label>總張數</label><input type="number" name="copy_pages" placeholder="請輸入張數"
-                            min="1"></div>
-                </div>
-                <div class="form-group"><label>歸屬專案 / 班級</label><input type="text" name="project_class"
-                        placeholder="例如：國一數學秋季班講義"></div>
-            </div>
-
-            <div id="data_access-form" class="dynamic-form">
-                <div class="form-group"
-                    style="background-color: #FEF2F2; padding: 15px; border-left: 4px solid #EF4444; border-radius: 4px; margin-bottom: 20px;">
-                    <span style="color: #B91C1C; font-size: 0.9rem; font-weight: bold;">⚠️
-                        注意：此表單將直接呈報「資安長」進行簽核，請確保調閱行為符合個資法規範。</span>
-                </div>
-                <div class="row">
-                    <div class="form-group"><label>調閱對象類別</label><select name="data_target_type">
-                            <option value="student">學生個資</option>
-                            <option value="parent">家長個資</option>
-                            <option value="employee">員工個資</option>
-                        </select></div>
-                    <div class="form-group"><label>調閱範圍/條件</label><input type="text" name="data_scope"
-                            placeholder="例如：2026年報名秋季班之學生名單"></div>
-                </div>
-                <div class="form-group"><label>調閱目的與用途</label><textarea name="data_purpose"
-                        placeholder="請詳細說明為何需要調閱此資料？資料將用於何處？"></textarea></div>
+            <form id="applyForm" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" name="data_compliance" required style="width: auto;">
-                        <span style="font-weight: normal; font-size: 0.9rem;">我已了解並同意遵守公司資訊安全與個資保護規範，調閱之資料絕不外流。</span>
-                    </label>
+                    <label for="formTypeSelector">表單類型</label>
+                    <select id="formTypeSelector" class="form-control" required onchange="renderFormFields()">
+                        <option value="" disabled selected>請選擇申請項目</option>
+                        <option value="payment">請款申請單</option>
+                        <option value="leave">請假申請單</option>
+                        <option value="seal">用印申請單</option>
+                        <option value="procurement">採購申請單</option>
+                        <option value="cash_withdraw">現金提領申請單</option>
+                        <option value="copy_record">影印登記表</option>
+                        <option value="data_access">個資調閱申請單</option>
+                    </select>
                 </div>
-            </div>
 
-            <button type="submit" class="btn-submit">送出申請單 ➔</button>
-        </form>
+                <div id="dynamicFieldsContainer" class="dynamic-fields" style="display: none;"></div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">送出申請單</button>
+            </form>
+        </div>
     </div>
 
     <script>
-        // 處理表單切換與必填/停用屬性動態控制的邏輯
-        function switchForm() {
-            document.querySelectorAll('.dynamic-form').forEach(form => {
-                form.classList.remove('active');
+        // 初始化與權限驗證
+        document.addEventListener('DOMContentLoaded', () => {
+            const userStr = localStorage.getItem('currentUser');
+            if (!userStr) {
+                window.location.href = '/';
+                return;
+            }
 
-                // 把隱藏表單裡面的欄位全部設為 disabled，FormData 就不會收集它們
-                form.querySelectorAll('input, select, textarea').forEach(input => {
-                    input.disabled = true;
-                });
+            const user = JSON.parse(userStr);
+            document.getElementById('userName').textContent = user.name;
 
-                form.querySelectorAll('[required], [data-req="true"]').forEach(input => {
-                    input.setAttribute('data-req', 'true');
-                    input.removeAttribute('required');
-                });
-            });
+            const roleMap = {
+                'EMPLOYEE': '一般員工',
+                'MANAGER': '單位主管',
+                'DIRECTOR': '管理部主任',
+                'CISO': '資安長',
+                'PRINCIPAL': '班主任'
+            };
+            document.getElementById('userRole').textContent = roleMap[user.role] || user.role;
 
-            const selectedType = document.getElementById('formTypeSelector').value;
-            const activeForm = document.getElementById(`${selectedType}-form`);
+            if (['PRINCIPAL', 'CISO', 'DIRECTOR'].includes(user.role)) {
+                document.getElementById('adminMenu').style.display = 'block';
+            }
+        });
 
-            if (activeForm) {
-                activeForm.classList.add('active');
+        // 手機版選單切換
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+        }
 
-                // 把顯示中表單的欄位恢復啟用 (disabled = false)
-                activeForm.querySelectorAll('input, select, textarea').forEach(input => {
-                    input.disabled = false;
-                });
+        // 登出系統
+        function logout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = '/';
+        }
 
-                activeForm.querySelectorAll('[data-req="true"]').forEach(input => {
-                    input.setAttribute('required', 'true');
-                });
+        // 表單欄位配置設定
+        const formTemplates = {
+            payment: `
+                <div class="form-group"><label>請款金額 (NT$)</label><input type="number" name="payment_amount" class="form-control" required min="1"></div>
+                <div class="form-group"><label>受款人/廠商名稱</label><input type="text" name="payee_name" class="form-control" required></div>
+                <div class="form-group"><label>請款事由說明</label><textarea name="payment_reason" class="form-control" rows="3" required></textarea></div>
+                <div class="form-group"><label>上傳憑證 (發票/收據)</label><input type="file" name="receipt_file" class="form-control" accept="image/*,.pdf" required></div>
+            `,
+            leave: `
+                <div class="form-group"><label>假別</label><select name="leave_type" class="form-control" required><option value="annual">特休</option><option value="sick">病假</option><option value="personal">事假</option><option value="official">公假</option></select></div>
+                <div class="form-group"><label>職務代理人</label><input type="text" name="substitute" class="form-control" required></div>
+                <div class="form-group"><label>開始時間</label><input type="datetime-local" name="leave_start" class="form-control" required></div>
+                <div class="form-group"><label>結束時間</label><input type="datetime-local" name="leave_end" class="form-control" required></div>
+                <div class="form-group"><label>請假事由</label><textarea name="leave_reason" class="form-control" rows="3" required></textarea></div>
+                <div class="form-group"><label>證明文件 (選填)</label><input type="file" name="proof_file" class="form-control" accept="image/*,.pdf"></div>
+            `,
+            seal: `
+                <div class="form-group"><label>文件名稱</label><input type="text" name="document_name" class="form-control" required></div>
+                <div class="form-group"><label>申請印信種類</label><select name="seal_type" class="form-control" required><option value="company">補習班官印</option><option value="representative">班主任私章</option><option value="both">公司一般大小章</option><option value="contract">班主任職名章</option><option value="sign">班主任簽字章</option></select></div>
+                <div class="form-group"><label>用印份數</label><input type="number" name="seal_copies" class="form-control" required min="1"></div>
+                <div class="form-group"><label>用印事由</label><textarea name="seal_reason" class="form-control" rows="3" required></textarea></div>
+                <div class="form-group"><label>文件電子檔</label><input type="file" name="document_file" class="form-control" accept=".pdf,.doc,.docx" required></div>
+            `,
+            procurement: `
+                <div class="form-group"><label>申購物品名稱</label><input type="text" name="item_name" class="form-control" required></div>
+                <div class="form-group"><label>預估單價 (NT$)</label><input type="number" name="estimated_cost" class="form-control" required min="1"></div>
+                <div class="form-group"><label>數量</label><input type="number" name="quantity" class="form-control" required min="1"></div>
+                <div class="form-group"><label>申購原因</label><textarea name="procurement_reason" class="form-control" rows="3" required></textarea></div>
+                <div class="form-group"><label>參考報價單 (選填)</label><input type="file" name="quote_file" class="form-control" accept="image/*,.pdf"></div>
+            `,
+            cash_withdraw: `
+                <div class="form-group"><label>提領金額 (NT$)</label><input type="number" name="withdraw_amount" class="form-control" required min="1"></div>
+                <div class="form-group"><label>預計提領日期</label><input type="date" name="withdraw_date" class="form-control" required></div>
+                <div class="form-group"><label>資金用途說明</label><textarea name="withdraw_reason" class="form-control" rows="3" required></textarea></div>
+            `,
+            copy_record: `
+                <div class="form-group"><label>班級名稱</label><input type="text" name="class" class="form-control" required></div>
+                <div class="form-group"><label>授課老師</label><input type="text" name="teacher" class="form-control" required></div>
+                <div class="form-group"><label>講義內容</label><input type="text" name="text" class="form-control" required></div>
+
+                <div class="form-group"><label>影印類型</label><select name="copy_color" class="form-control" required><option value="black_white">黑白</option><option value="color">彩色</option></select></div>
+                <div class="form-group"><label>總張數</label><input type="number" name="copy_pages" class="form-control" required min="1"></div>
+            `,
+            data_access: `
+                <div class="form-group"><label>調閱對象類型</label><select name="data_target_type" class="form-control" required><option value="student">學生資料</option><option value="parent">家長資料</option><option value="employee">員工資料</option></select></div>
+                <div class="form-group"><label>調閱範圍說明</label><input type="text" name="data_scope" class="form-control" placeholder="例如：2023年秋季班全體學生成績" required></div>
+                <div class="form-group"><label>調閱目的 (需符合個資法)</label><textarea name="data_purpose" class="form-control" rows="3" required></textarea></div>
+                <div class="form-group"><label><input type="checkbox" name="data_compliance" required> 本人承諾遵守個人資料保護法，調閱資料僅供公務使用，絕不外洩。</label></div>
+            `
+        };
+
+        // 動態渲染表單欄位
+        function renderFormFields() {
+            const type = document.getElementById('formTypeSelector').value;
+            const container = document.getElementById('dynamicFieldsContainer');
+            if (type && formTemplates[type]) {
+                container.innerHTML = formTemplates[type];
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+                container.innerHTML = '';
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const userStr = localStorage.getItem('currentUser');
-            // 💡 防護機制：避免之前存到 "undefined" 導致崩潰
-            if (!userStr || userStr === 'undefined') {
-                alert('請先登入系統！');
-                localStorage.removeItem('currentUser');
-                window.location.href = '/';
-                return;
-            }
-            switchForm();
-        });
-
-        // 處理表單送出事件 (支援檔案上傳)
-        document.getElementById('mainApplicationForm').addEventListener('submit', async function (e) {
+        // 表單提交處理
+        document.getElementById('applyForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // 抓取送出按鈕
-            const submitBtn = this.querySelector('.btn-submit');
             const userStr = localStorage.getItem('currentUser');
-
-            // 💡 再次確認登入狀態，防止崩潰
-            if (!userStr || userStr === 'undefined') {
-                alert('登入已失效，請重新登入！');
-                localStorage.removeItem('currentUser');
+            if (!userStr) {
+                alert('登入狀態已失效，請重新登入。');
                 window.location.href = '/';
                 return;
             }
 
-            // 💡 體驗升級：按鈕變更為送出中，並禁用按鈕防止員工重複連點送出兩張單
+            const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.textContent = '表單傳送中，請稍候... ⏳';
+            submitBtn.textContent = '表單傳送中，請稍候...';
             submitBtn.style.backgroundColor = '#7A8B9A';
 
             try {
                 const user = JSON.parse(userStr);
                 const formType = document.getElementById('formTypeSelector').value;
 
-                // 使用 FormData 收集資料
+                // 收集表單資料 (包含檔案)
                 const formData = new FormData(this);
                 formData.append('formType', formType);
                 formData.append('userId', user.id);
@@ -398,21 +419,19 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert('表單與附件送出成功！已進入簽核流程。');
+                    alert('表單與附件送出成功，已進入簽核流程。');
                     window.location.href = '/dashboard';
                 } else {
                     alert('送出失敗：' + result.error);
-                    // 失敗時恢復按鈕狀態
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '送出申請單 ➔';
+                    submitBtn.textContent = '送出申請單';
                     submitBtn.style.backgroundColor = 'var(--primary-color)';
                 }
             } catch (err) {
                 alert('系統發生錯誤，無法連線至伺服器。');
                 console.error(err);
-                // 失敗時恢復按鈕狀態
                 submitBtn.disabled = false;
-                submitBtn.textContent = '送出申請單 ➔';
+                submitBtn.textContent = '送出申請單';
                 submitBtn.style.backgroundColor = 'var(--primary-color)';
             }
         });
