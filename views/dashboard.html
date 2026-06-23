@@ -184,6 +184,7 @@
             font-size: 0.8rem;
             font-weight: bold;
             color: #fff;
+            display: inline-block;
         }
 
         .badge.pending {
@@ -206,6 +207,10 @@
             color: #fff;
             font-size: 0.85rem;
             margin-right: 5px;
+        }
+
+        .btn-view {
+            background: #3182CE;
         }
 
         .btn-approve {
@@ -237,6 +242,80 @@
             background: #fff;
             border-radius: 8px;
             border: 1px dashed var(--border-color);
+        }
+
+        /* 彈出視窗 (燈箱) 樣式 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-container {
+            background: #fff;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 85vh;
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            background: var(--primary-color);
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: right;
+        }
+
+        .detail-row {
+            margin-bottom: 12px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #4A5568;
+            display: inline-block;
+            width: 130px;
         }
 
         /* 響應式設定 (RWD) */
@@ -278,6 +357,12 @@
 
             .tabs {
                 flex-wrap: wrap;
+            }
+
+            .data-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
             }
         }
     </style>
@@ -323,7 +408,9 @@
                                 <th>單號</th>
                                 <th>申請人</th>
                                 <th>表單類型</th>
+                                <th>申請時間</th>
                                 <th>狀態</th>
+                                <th>操作</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -333,8 +420,8 @@
         </div>
 
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('pending')">待我簽核</div>
-            <div class="tab" onclick="switchTab('history')">我的申請紀錄</div>
+            <div class="tab active" id="tab-btn-pending" onclick="switchTab('pending', this)">待我簽核</div>
+            <div class="tab" id="tab-btn-history" onclick="switchTab('history', this)">我的申請紀錄</div>
         </div>
 
         <div id="pending-tab" class="tab-content active">
@@ -363,8 +450,8 @@
                         <th>單號</th>
                         <th>表單類型</th>
                         <th>申請時間</th>
-                        <th>目前進度</th>
-                        <th>最終狀態</th>
+                        <th>狀態/進度</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -373,6 +460,20 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="modalTitle">申請單明細</h3>
+                <button class="close-btn" onclick="closeModal()">✖</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action" style="background:#CBD5E0; color:#333;" onclick="closeModal()">關閉視窗</button>
+            </div>
         </div>
     </div>
 
@@ -398,6 +499,18 @@
 
         const t = (text) => translateDict[text] || text;
 
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+        }
+
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (element) element.classList.add('active');
+            document.getElementById(tabId + '-tab').classList.add('active');
+        }
+
         function logout() {
             localStorage.removeItem('currentUser');
             window.location.href = '/';
@@ -412,16 +525,22 @@
             }
             const user = JSON.parse(userStr);
 
-            const roleMapping = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
+            const roleMapping = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
             document.getElementById('userName').textContent = `${user.name} (${roleMapping[user.role] || user.role})`;
 
-            if (user.role === 'CISO') document.getElementById('menu-users').style.display = 'block';
+            if (user.role === 'CISO') document.getElementById('adminMenu').style.display = 'block';
 
-            if (user.role === 'EMPLOYEE') document.getElementById('approvalSection').style.display = 'none';
-            else await loadPendingForms(user.role);
+            // 判斷是否為一般員工，若是一般員工則隱藏「待簽核」頁籤，預設顯示歷史紀錄
+            if (user.role === 'EMPLOYEE') {
+                document.getElementById('tab-btn-pending').style.display = 'none';
+                switchTab('history', document.getElementById('tab-btn-history'));
+            } else {
+                await loadPendingForms(user.role);
+            }
 
+            // 判斷是否為高階主管，顯示圖表總覽區
             if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) {
-                document.getElementById('allRecordsSection').style.display = 'block';
+                document.getElementById('overviewSection').style.display = 'block';
                 await loadAllRecords(user.role);
             }
 
@@ -438,35 +557,47 @@
                         type: 'doughnut',
                         data: {
                             labels: result.data.map(i => i.label),
-                            datasets: [{ data: result.data.map(i => i.value), backgroundColor: ['#3182CE', '#E53E3E', '#D69E2E', '#38A169', '#805AD5'] }]
-                        }
+                            datasets: [{ data: result.data.map(i => i.value), backgroundColor: ['#3182CE', '#E53E3E', '#D69E2E', '#38A169', '#805AD5', '#ED8936', '#4A5568'] }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false }
                     });
                 }
             } catch (e) { console.error(e); }
         }
 
         async function loadPendingForms(role) {
-            const tbody = document.getElementById('approvalList');
+            const tbody = document.querySelector('#pendingTable tbody');
             const response = await fetch(`/api/forms/pending/${role}`);
             const result = await response.json();
             if (result.success) {
-                tbody.innerHTML = result.data.length ? '' : '<tr><td colspan="5" style="text-align:center;">目前無任務</td></tr>';
+                tbody.innerHTML = result.data.length ? '' : '<tr><td colspan="5" class="empty-state">目前無待簽核任務</td></tr>';
                 result.data.forEach(form => {
                     allFormsData[form.application_id] = form;
-                    tbody.innerHTML += `<tr><td>#${form.application_id}</td><td>${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td><td><button class="btn btn-view" onclick="openModal(${form.application_id})">查看</button><button class="btn btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button><button class="btn btn-reject" onclick="reviewForm(${form.application_id}, 'REJECT')">駁回</button></td></tr>`;
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>#${form.application_id}</td>
+                            <td>${form.applicant_name}</td>
+                            <td>${form.form_type_name}</td>
+                            <td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td>
+                            <td>
+                                <button class="btn-action btn-view" onclick="openModal(${form.application_id})">看內容</button>
+                                <button class="btn-action btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">核准</button>
+                                <button class="btn-action btn-reject" onclick="reviewForm(${form.application_id}, 'REJECT')">駁回</button>
+                            </td>
+                        </tr>`;
                 });
             }
         }
 
         async function loadAllRecords(userRole) {
-            const tbody = document.getElementById('allRecordsList');
+            const tbody = document.querySelector('#allRecordsTable tbody');
             try {
                 const response = await fetch(`/api/forms/all-records`, { headers: { 'x-user-role': userRole } });
                 const result = await response.json();
 
                 if (result.success) {
-                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="6" style="text-align:center;">目前無任何申請紀錄</td></tr>' : '';
-                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已結案</span>', 'REJECTED': '<span class="badge" style="background:#FED7D7; color:#C53030;">被駁回</span>' };
+                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="6" class="empty-state">目前無任何申請紀錄</td></tr>' : '';
+                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已結案</span>', 'REJECTED': '<span class="badge rejected">被駁回</span>' };
                     const stepMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
 
                     result.data.forEach(form => {
@@ -478,8 +609,8 @@
                                 <td style="font-weight:bold;">${form.applicant_name}</td>
                                 <td>${form.form_type_name}</td>
                                 <td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td>
-                                <td>${statusMap[form.status]} ${progressText}</td>
-                                <td><button class="btn btn-view" onclick="openModal(${form.application_id})">看內容</button></td>
+                                <td>${statusMap[form.status]} <span style="font-size:0.8rem; color:#7A8B9A;">${progressText}</span></td>
+                                <td><button class="btn-action btn-view" onclick="openModal(${form.application_id})">看內容</button></td>
                             </tr>
                         `;
                     });
@@ -488,24 +619,27 @@
         }
 
         async function loadMyRecords(userId) {
-            const tbody = document.getElementById('myRecordsList');
+            const tbody = document.querySelector('#historyTable tbody');
             try {
                 const response = await fetch(`/api/forms/my-records/${userId}`);
                 const result = await response.json();
 
                 if (result.success) {
-                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="5" style="text-align:center;">目前無申請紀錄</td></tr>' : '';
-                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已核准</span>', 'REJECTED': '<span class="badge" style="background:#FED7D7; color:#C53030;">已駁回</span>' };
+                    tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="5" class="empty-state">目前無申請紀錄</td></tr>' : '';
+                    const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已核准結案</span>', 'REJECTED': '<span class="badge rejected">已駁回</span>' };
+                    const stepMap = { 1: '主管', 2: '主任', 3: '資安長', 4: '班主任' };
 
                     result.data.forEach(record => {
                         allFormsData[record.application_id] = record;
+                        let currentStepStr = record.status === 'PENDING' ? `第 ${record.current_step} 關 (${stepMap[record.current_step] || '未知'})` : '-';
+
                         tbody.innerHTML += `
                             <tr>
                                 <td>#${record.application_id}</td>
-                                <td>${record.form_type_name}</td>
+                                <td style="font-weight:bold; color:var(--primary-color);">${record.form_type_name}</td>
                                 <td>${new Date(record.created_at).toLocaleDateString('zh-TW')}</td>
-                                <td>${statusMap[record.status] || record.status}</td>
-                                <td><button class="btn btn-view" onclick="openModal(${record.application_id})">看內容</button></td>
+                                <td>${statusMap[record.status]} <br><span style="font-size:0.8rem; color:#7A8B9A;">${currentStepStr}</span></td>
+                                <td><button class="btn-action btn-view" onclick="openModal(${record.application_id})">看明細</button></td>
                             </tr>
                         `;
                     });
@@ -513,12 +647,11 @@
             } catch (err) { console.error("無法載入申請紀錄", err); }
         }
 
-        // 安全解析資料，防止當機
         function openModal(id) {
             const form = allFormsData[id];
             if (!form) return;
 
-            document.getElementById('modalTitle').textContent = `申請單明細 #${form.application_id}`;
+            document.getElementById('modalTitle').textContent = `單號 #${form.application_id} - ${form.form_type_name || '申請單明細'}`;
             const body = document.getElementById('modalBody');
             body.innerHTML = '';
 
@@ -563,20 +696,22 @@
                     let displayVal = t(content[key]);
 
                     if (typeof content[key] === 'string' && content[key].startsWith('/uploads/')) {
-                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}：</span><a href="${content[key]}" target="_blank" style="color:var(--primary-color); font-weight:bold;">📄 [點此預覽附件]</a></div>`;
+                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}</span> <a href="${content[key]}" target="_blank" style="color:var(--primary-color); font-weight:bold; text-decoration:none;">📄 [點此預覽附件]</a></div>`;
                     } else {
-                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}：</span>${displayVal}</div>`;
+                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}</span> ${displayVal}</div>`;
                     }
                 }
             } catch (e) {
                 console.error(e);
-                body.innerHTML += `<div class="detail-row" style="color:red;">資料解析失敗，請重新整理頁面。</div>`;
+                body.innerHTML += `<div class="detail-row" style="color:#E53E3E; font-weight:bold;">資料解析失敗，無法顯示明細。</div>`;
             }
 
             document.getElementById('detailModal').classList.add('active');
         }
 
-        function closeModal() { document.getElementById('detailModal').classList.remove('active'); }
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
 
         async function reviewForm(id, action) {
             const actionText = action === 'APPROVE' ? '核准' : '駁回';
@@ -607,9 +742,10 @@
                 }
             } catch (err) {
                 console.error(err);
-                alert("系統連線異常，簽核失敗");
+                alert("系統連線異常，簽核處理失敗");
             }
-        }    </script>
+        }    
+    </script>
 </body>
 
 </html>
