@@ -25,7 +25,6 @@ router.post('/apply', upload.any(), async (req, res) => {
     const { userId, formType, ...contentData } = req.body;
     const formTypeId = formTypeMapping[formType] || 1;
 
-    // 解析代理人資料
     if (contentData.substitute_info) {
         contentData.substitute_id = contentData.substitute_info.split(':')[0];
         contentData.substitute = contentData.substitute_info.split(':')[1];
@@ -40,10 +39,9 @@ router.post('/apply', upload.any(), async (req, res) => {
         const [users] = await db.query('SELECT role FROM users WHERE id = ?', [userId]);
         const userRole = users[0].role;
 
-        // 智慧化起始關卡
         let startStep = 1;
         if (formTypeId === 2) {
-            startStep = 0; // 請假單強制進入 第 0 關 (職務代理人)
+            startStep = 0; 
         } else {
             if (userRole === 'EMPLOYEE' || userRole === 'MANAGER' || userRole === '櫃檯主任') startStep = 1;
             else if (userRole === 'DIRECTOR' || userRole === 'CISO') startStep = 2; 
@@ -130,10 +128,11 @@ router.get('/my-records/:userId', async (req, res) => {
 router.get('/:id/logs', async (req, res) => {
     try {
         const [logs] = await db.query(`
-            SELECT l.step_number, l.action, u.name, u.role
+            SELECT l.step_number, l.action, u.name, u.role, l.created_at, l.comment
             FROM approval_logs l
             JOIN users u ON l.approver_id = u.id
             WHERE l.application_id = ?
+            ORDER BY l.created_at ASC
         `, [req.params.id]);
         res.json({ success: true, data: logs });
     } catch (error) {
@@ -169,7 +168,6 @@ router.post('/:id/review', async (req, res) => {
             return res.json({ success: true, message: '已駁回表單，流程結束。' });
         }
 
-        // 💡 智慧化下一關 (修正資安長特權邏輯)
         let nextStep = currentStep;
         let isFinal = false;
 
@@ -181,18 +179,18 @@ router.post('/:id/review', async (req, res) => {
         else if (currentStep === 1) nextStep = 2;
         else if (currentStep === 2) {
             if (formTypeId === 7) {
-                if (applicantRole === 'CISO') isFinal = true; // 資安長自請個資，主任同意即結案
+                if (applicantRole === 'CISO') isFinal = true; 
                 else nextStep = 3;
             }
             else if (formTypeId === 3) {
-                if (applicantRole === 'CISO') nextStep = 4; // 資安長自請用印，跳過自己，送班主任
+                if (applicantRole === 'CISO') nextStep = 4; 
                 else nextStep = 3;
             }
-            else nextStep = 4; // 其餘表單一律跳過資安長，直達班主任
+            else nextStep = 4; 
         }
         else if (currentStep === 3) {
-            if (formTypeId === 7) isFinal = true; // 個資調閱停在資安長
-            else if (formTypeId === 3) nextStep = 4; // 用印繼續往班主任送
+            if (formTypeId === 7) isFinal = true; 
+            else if (formTypeId === 3) nextStep = 4; 
         }
         else if (currentStep === 4) {
             isFinal = true; 
@@ -230,6 +228,7 @@ router.get('/stats', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: '無法讀取統計資料' }); }
 });
 
+// 📌 產生專業數位核准證明 (修正時區與標題)
 router.get('/:id/certificate', async (req, res) => {
     const formId = req.params.id;
     try {
@@ -242,17 +241,23 @@ router.get('/:id/certificate', async (req, res) => {
         
         let logsHtml = '';
         logs.forEach(log => {
-            const dateStr = new Date(log.created_at).toLocaleString('zh-TW');
+            // 強制使用台灣時區與 24 小時制
+            const dateStr = new Date(log.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
             const actionStr = log.action === 'APPROVE' ? '<span style="color:green;font-weight:bold;">核准通過</span>' : '<span style="color:red;font-weight:bold;">駁回</span>';
             const displayRole = log.role === 'EMPLOYEE' ? '職務代理人' : (roleMap[log.role] || log.role);
             logsHtml += `<tr><td style="padding:12px; border-bottom:1px solid #eee;">${dateStr}</td><td style="padding:12px; border-bottom:1px solid #eee;">${displayRole} - ${log.approver_name}</td><td style="padding:12px; border-bottom:1px solid #eee;">${actionStr}</td><td style="padding:12px; border-bottom:1px solid #eee; color:#666;">${log.comment || '-'}</td></tr>`;
         });
+
+        // 強制使用台灣時區
+        const applyDateStr = new Date(form.created_at).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
+        const printTimeStr = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
 
         const htmlContent = `
             <!DOCTYPE html>
             <html lang="zh-TW">
             <head>
                 <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>核准證明書 - #${formId}</title>
                 <style>
                     body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; background: #f0f2f5; color: #333; padding: 20px; }
@@ -276,10 +281,22 @@ router.get('/:id/certificate', async (req, res) => {
             <body>
                 <button class="print-btn" onclick="window.print()">🖨️ 列印 / 儲存為 PDF</button>
                 <div class="page">
-                    <div class="header"><h1>行政簽核系統</h1><h2>${form.form_name} - 最終核准證明書</h2><div class="stamp">已結案 APPROVED</div></div>
-                    <div class="info-grid"><div class="info-item"><span>表單單號：</span> #${form.id}</div><div class="info-item"><span>申請人員：</span> ${form.applicant_name}</div><div class="info-item"><span>申請日期：</span> ${new Date(form.created_at).toLocaleDateString('zh-TW')}</div><div class="info-item"><span>列印時間：</span> ${new Date().toLocaleString('zh-TW')}</div></div>
+                    <div class="header">
+                        <h1>學達補習班行政簽核系統</h1>
+                        <h2>${form.form_name} - 最終核准證明書</h2>
+                        <div class="stamp">已結案 APPROVED</div>
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item"><span>表單單號：</span> #${form.id}</div>
+                        <div class="info-item"><span>申請人員：</span> ${form.applicant_name}</div>
+                        <div class="info-item"><span>申請日期：</span> ${applyDateStr}</div>
+                        <div class="info-item"><span>列印時間：</span> ${printTimeStr}</div>
+                    </div>
                     <h3>簽核歷程與時間戳記</h3>
-                    <table><thead><tr><th width="25%">審核時間</th><th width="30%">審核層級 / 主管</th><th width="15%">決策</th><th width="30%">意見備註</th></tr></thead><tbody>${logsHtml}</tbody></table>
+                    <table>
+                        <thead><tr><th width="25%">審核時間</th><th width="30%">審核層級 / 主管</th><th width="15%">決策</th><th width="30%">意見備註</th></tr></thead>
+                        <tbody>${logsHtml}</tbody>
+                    </table>
                     <div class="footer-note">此文件由行政簽核系統自動生成，具備完整電子簽核效力。</div>
                 </div>
             </body>
