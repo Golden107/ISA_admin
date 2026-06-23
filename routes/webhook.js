@@ -9,7 +9,7 @@ const LINE_SECRET = process.env.LINE_SECRET;
 
 const stepRoleMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
 
-// 建立標準化 Mega Flex Message 卡片給主管審核用
+// 主管專用：建立標準化待簽核卡片
 function buildFlexMessage(formId, formName, applicantName, applyDateStr, contentData) {
     const tDict = {
         'payment_amount': '請款金額', 'payee_name': '受款人/廠商', 'payment_reason': '請款事由', 'receipt_file': '憑證檔案',
@@ -44,10 +44,6 @@ function buildFlexMessage(formId, formName, applicantName, applyDateStr, content
         });
     }
 
-    if (detailContents.length === 0) {
-        detailContents.push({ "type": "text", "text": "無明細資料", "size": "sm", "color": "#888888" });
-    }
-
     return {
         type: "bubble",
         size: "mega",
@@ -76,7 +72,7 @@ function buildFlexMessage(formId, formName, applicantName, applyDateStr, content
                     ]
                 },
                 { "type": "separator", "margin": "lg", "color": "#E2E8F0" },
-                { "type": "box", "layout": "vertical", "margin": "lg", "contents": detailContents }
+                { "type": "box", "layout": "vertical", "margin": "lg", "contents": detailContents.length > 0 ? detailContents : [{ "type": "text", "text": "無明細資料", "size": "sm", "color": "#888888" }] }
             ]
         },
         footer: {
@@ -89,7 +85,32 @@ function buildFlexMessage(formId, formName, applicantName, applyDateStr, content
     };
 }
 
-// 主動推播給下一關主管的功能
+// 員工專用：建立個人「簽核中」進度卡片
+function buildPendingStatusMessage(formId, formName, currentStep) {
+    const roleName = stepRoleMap[currentStep] || '未知主管';
+
+    return {
+        type: "bubble",
+        size: "micro",
+        header: {
+            "type": "box", "layout": "vertical", "backgroundColor": "#D69E2E",
+            "contents": [
+                { "type": "text", "text": "審核進行中", "color": "#ffffff", "weight": "bold", "size": "sm" }
+            ]
+        },
+        body: {
+            "type": "box", "layout": "vertical", "paddingAll": "15px",
+            "contents": [
+                { "type": "text", "text": formName, "weight": "bold", "size": "md", "wrap": true },
+                { "type": "text", "text": `單號：#${formId}`, "size": "xs", "color": "#888888", "margin": "sm" },
+                { "type": "separator", "margin": "md" },
+                { "type": "text", "text": "目前進度卡在：", "size": "xs", "color": "#888888", "margin": "md" },
+                { "type": "text", "text": roleName, "size": "sm", "color": "#E53E3E", "weight": "bold", "margin": "xs" }
+            ]
+        }
+    };
+}
+
 async function notifyNextApprovers(applicationId) {
     try {
         const [apps] = await db.query(`
@@ -128,36 +149,42 @@ async function notifyNextApprovers(applicationId) {
     }
 }
 
-// 專屬發送給「申請人」的精美卡片通知
 async function notifyApplicant(lineUserId, formId, formName, status, nextStepNum, comment) {
     if (!lineUserId || !LINE_TOKEN) return;
-    
+
     let title = "", color = "", desc = "";
+    let buttons = [];
+
     if (status === 'APPROVED_FINAL') {
-        title = "✅ 表單結案通知"; color = "#38A169"; 
+        title = "表單結案通知"; color = "#38A169";
         desc = `您的「${formName}」已完成最終決行，正式結案。`;
+        // 加入下載 PDF 的按鈕
+        buttons.push({
+            type: "button", style: "primary", color: "#0F4C81", margin: "md",
+            action: { type: "uri", label: "下載核准證明 (PDF)", uri: `https://www.isaedu.com.tw/api/forms/${formId}/certificate` }
+        });
     } else if (status === 'REJECTED') {
-        title = "❌ 申請遭駁回"; color = "#E53E3E"; 
-        desc = `您的「${formName}」已遭到主管駁回。\n\n主管意見：${comment || '無'}`;
+        title = "申請遭駁回"; color = "#E53E3E";
+        desc = `您的「${formName}」已遭到駁回。\n\n主管意見：${comment || '無'}`;
     } else if (status === 'FORWARDED') {
-        title = "⏳ 簽核進度更新"; color = "#D69E2E"; 
+        title = "簽核進度更新"; color = "#D69E2E";
         const nextRoleName = stepRoleMap[nextStepNum] || '下一關主管';
         desc = `您的「${formName}」已通過審核！\n目前轉交【${nextRoleName}】簽核中。`;
     }
 
+    let bodyContents = [
+        { type: "text", text: title, weight: "bold", color: color, size: "lg" },
+        { type: "text", text: `單號：#${formId}`, size: "sm", color: "#888888" },
+        { type: "separator", margin: "md", color: "#E2E8F0" },
+        { type: "text", text: desc, wrap: true, size: "md", color: "#333333", margin: "md" }
+    ];
+
     const flexMsg = {
-        type: "flex", altText: `【簽核通知】單號 #${formId} 狀態更新`,
+        type: "flex", altText: `單號 #${formId} 狀態更新`,
         contents: {
             type: "bubble", size: "kilo",
-            body: {
-                type: "box", layout: "vertical", spacing: "md", paddingAll: "20px",
-                contents: [
-                    { type: "text", text: title, weight: "bold", color: color, size: "lg" },
-                    { type: "text", text: `單號：#${formId}`, size: "sm", color: "#888888" },
-                    { type: "separator", margin: "md", color: "#E2E8F0" },
-                    { type: "text", text: desc, wrap: true, size: "md", color: "#333333", margin: "md" }
-                ]
-            }
+            body: { type: "box", layout: "vertical", spacing: "sm", paddingAll: "20px", contents: bodyContents },
+            footer: buttons.length > 0 ? { type: "box", layout: "vertical", contents: buttons } : undefined
         }
     };
     await sendLineMessage(lineUserId, flexMsg);
@@ -185,23 +212,14 @@ router.post('/line', async (req, res) => {
                 const bindUrl = `${baseUrl}/bind?lineId=${lineUserId}`;
                 await replyLineMessage(event.replyToken, `請點擊下方專屬安全連結，前往網頁進行帳號綁定：\n\n🔗 ${bindUrl}`);
             }
-            // 💡 擴充關鍵字，避免圖文選單文字不一致導致沒反應
-            else if (text === '待簽核項目' || text === '簽核中項目') {
+            // 邏輯拆分一：呼叫「待簽核項目」 (我是主管，我要審核別人)
+            else if (text === '待簽核項目') {
                 try {
-                    const [users] = await db.query('SELECT role, name FROM users WHERE line_user_id = ?', [lineUserId]);
-                    if (users.length === 0) {
-                        await replyLineMessage(event.replyToken, '系統查無綁定紀錄。請輸入「綁定」進行帳號連結。');
-                        return;
-                    }
+                    const [users] = await db.query('SELECT role FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return await replyLineMessage(event.replyToken, '系統查無綁定紀錄。請輸入「綁定」進行帳號連結。');
 
-                    const user = users[0];
-                    const stepMap = { 'MANAGER': 1, '櫃檯主任': 1, 'DIRECTOR': 2, 'CISO': 3, 'PRINCIPAL': 4 };
-                    const targetStep = stepMap[user.role];
-
-                    if (!targetStep) {
-                        await replyLineMessage(event.replyToken, '您目前的帳號權限無簽核需求。');
-                        return;
-                    }
+                    const targetStep = { 'MANAGER': 1, '櫃檯主任': 1, 'DIRECTOR': 2, 'CISO': 3, 'PRINCIPAL': 4 }[users[0].role];
+                    if (!targetStep) return await replyLineMessage(event.replyToken, '您目前的帳號權限無簽核需求。');
 
                     const [forms] = await db.query(`
                         SELECT a.id, f.name AS form_name, u.name AS applicant_name, a.created_at, a.content 
@@ -209,73 +227,78 @@ router.post('/line', async (req, res) => {
                         JOIN form_types f ON a.form_type_id = f.id
                         JOIN users u ON a.user_id = u.id
                         WHERE a.status = 'PENDING' AND a.current_step = ?
-                        ORDER BY a.created_at DESC LIMIT 10
+                        ORDER BY a.created_at ASC LIMIT 10
                     `, [targetStep]);
 
                     if (forms.length === 0) {
-                        await replyLineMessage(event.replyToken, '太棒了！您目前沒有任何待簽核的單據。');
+                        await replyLineMessage(event.replyToken, '目前沒有需要您簽核的單據。');
                     } else {
                         const bubbles = forms.map(f => {
                             const contentData = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
                             const applyDateStr = new Date(f.created_at).toLocaleDateString('zh-TW');
                             return buildFlexMessage(f.id, f.form_name, f.applicant_name, applyDateStr, contentData);
                         });
-
-                        const flexMsg = {
-                            type: "flex", altText: `您有 ${forms.length} 筆待簽核單據`,
-                            contents: { type: "carousel", contents: bubbles }
-                        };
-                        await replyLineMessage(event.replyToken, flexMsg);
+                        await replyLineMessage(event.replyToken, { type: "flex", altText: `待簽核清單 (${forms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
                     }
                 } catch (err) {
                     console.error(err);
-                    await replyLineMessage(event.replyToken, '系統連線異常，無法讀取待簽核資料。');
+                }
+            }
+            // 邏輯拆分二：呼叫「簽核中項目」 (我是員工，我想看我自己送出的單卡在哪)
+            else if (text === '簽核中項目') {
+                try {
+                    const [users] = await db.query('SELECT id FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return await replyLineMessage(event.replyToken, '系統查無綁定紀錄。請輸入「綁定」進行帳號連結。');
+
+                    const [forms] = await db.query(`
+                        SELECT a.id, f.name AS form_name, a.current_step 
+                        FROM applications a
+                        JOIN form_types f ON a.form_type_id = f.id
+                        WHERE a.status = 'PENDING' AND a.user_id = ?
+                        ORDER BY a.created_at DESC LIMIT 10
+                    `, [users[0].id]);
+
+                    if (forms.length === 0) {
+                        await replyLineMessage(event.replyToken, '您目前沒有正在簽核中的申請單。');
+                    } else {
+                        const bubbles = forms.map(f => buildPendingStatusMessage(f.id, f.form_name, f.current_step));
+                        await replyLineMessage(event.replyToken, { type: "flex", altText: `您的簽核中清單 (${forms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
+                    }
+                } catch (err) {
+                    console.error(err);
                 }
             }
         }
         else if (event.type === 'postback') {
-            const data = event.postback.data;
-            const params = new URLSearchParams(data);
+            const params = new URLSearchParams(event.postback.data);
             const action = params.get('action');
             const formId = params.get('formId');
 
             try {
-                const [users] = await db.query('SELECT id, role, name FROM users WHERE line_user_id = ?', [lineUserId]);
-                if (users.length === 0) {
-                    await replyLineMessage(event.replyToken, '此帳號尚未綁定系統，無法執行簽核。');
-                    return;
-                }
-                const approver = users[0];
+                const [users] = await db.query('SELECT id FROM users WHERE line_user_id = ?', [lineUserId]);
+                if (users.length === 0) return await replyLineMessage(event.replyToken, '此帳號尚未綁定系統。');
 
                 const [apps] = await db.query(`
-                    SELECT a.current_step, a.status, a.user_id, a.form_type_id, u.line_user_id AS applicant_line_id, f.name AS form_name
+                    SELECT a.current_step, a.status, a.form_type_id, u.line_user_id AS applicant_line_id, f.name AS form_name
                     FROM applications a
                     JOIN users u ON a.user_id = u.id
                     JOIN form_types f ON a.form_type_id = f.id
                     WHERE a.id = ?
                 `, [formId]);
 
-                if (apps.length === 0) {
-                    await replyLineMessage(event.replyToken, `單號 #${formId} 查無此單據或已刪除。`);
-                    return;
-                }
-
+                if (apps.length === 0) return await replyLineMessage(event.replyToken, `單號 #${formId} 查無資料。`);
                 const form = apps[0];
-                if (form.status !== 'PENDING') {
-                    return await replyLineMessage(event.replyToken, `單號 #${formId} 已經處理完畢囉。`);
-                }
+                if (form.status !== 'PENDING') return await replyLineMessage(event.replyToken, `單號 #${formId} 已處理完畢。`);
 
-                const comment = "透過 LINE 快速審核";
                 await db.query(
                     'INSERT INTO approval_logs (application_id, approver_id, step_number, action, comment) VALUES (?, ?, ?, ?, ?)',
-                    [formId, approver.id, form.current_step, action, comment]
+                    [formId, users[0].id, form.current_step, action, "透過 LINE 快速審核"]
                 );
 
                 if (action === 'REJECT') {
                     await db.query('UPDATE applications SET status = "REJECTED" WHERE id = ?', [formId]);
-                    // 發送精美卡片給申請者
-                    await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'REJECTED', null, comment);
-                    await replyLineMessage(event.replyToken, `已成功駁回單號 #${formId}。`);
+                    await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'REJECTED', null, "透過 LINE 快速審核");
+                    await replyLineMessage(event.replyToken, `已駁回單號 #${formId}。`);
                 } else if (action === 'APPROVE') {
                     let nextStep = form.current_step;
                     let isFinal = false;
@@ -298,19 +321,16 @@ router.post('/line', async (req, res) => {
                     if (isFinal) {
                         await db.query('UPDATE applications SET status = "APPROVED" WHERE id = ?', [formId]);
                         await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'APPROVED_FINAL', null, null);
-                        await replyLineMessage(event.replyToken, `單號 #${formId} 已完成最終決行並結案。`);
+                        await replyLineMessage(event.replyToken, `單號 #${formId} 已完成決行。`);
                     } else {
                         await db.query('UPDATE applications SET current_step = ? WHERE id = ?', [nextStep, formId]);
                         await notifyApplicant(form.applicant_line_id, formId, form.form_name, 'FORWARDED', nextStep, null);
-                        await replyLineMessage(event.replyToken, `單號 #${formId} 已核准，並轉交下一關主管。`);
-
-                        // 通知下一關主管
                         await notifyNextApprovers(formId);
+                        await replyLineMessage(event.replyToken, `單號 #${formId} 已核准轉交。`);
                     }
                 }
             } catch (err) {
                 console.error(err);
-                await replyLineMessage(event.replyToken, '系統錯誤，無法完成簽核作業。');
             }
         }
     }
@@ -318,26 +338,18 @@ router.post('/line', async (req, res) => {
 
 async function replyLineMessage(replyToken, messageContent) {
     if (!LINE_TOKEN) return;
-    const messagesObj = Array.isArray(messageContent) ? messageContent :
-        (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
+    const messagesObj = Array.isArray(messageContent) ? messageContent : (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
     try {
-        await axios.post('https://api.line.me/v2/bot/message/reply', {
-            replyToken: replyToken,
-            messages: messagesObj
-        }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } });
-    } catch (err) { console.error('回覆失敗', err.response ? JSON.stringify(err.response.data) : err.message); }
+        await axios.post('https://api.line.me/v2/bot/message/reply', { replyToken: replyToken, messages: messagesObj }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } });
+    } catch (err) { }
 }
 
 async function sendLineMessage(lineUserId, messageContent) {
     if (!lineUserId || !LINE_TOKEN) return;
-    const messagesObj = Array.isArray(messageContent) ? messageContent :
-        (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
+    const messagesObj = Array.isArray(messageContent) ? messageContent : (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
     try {
-        await axios.post('https://api.line.me/v2/bot/message/push', {
-            to: lineUserId,
-            messages: messagesObj
-        }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } });
-    } catch (err) { console.error('推播失敗', err.response ? JSON.stringify(err.response.data) : err.message); }
+        await axios.post('https://api.line.me/v2/bot/message/push', { to: lineUserId, messages: messagesObj }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } });
+    } catch (err) { }
 }
 
 module.exports = { router, sendLineMessage, notifyNextApprovers, notifyApplicant };

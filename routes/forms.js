@@ -4,6 +4,7 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const PDFDocument = require('pdfkit');
 
 // 引入 LINE 推播模組與卡片通知功能
 const { notifyNextApprovers, notifyApplicant } = require('./webhook'); 
@@ -24,6 +25,121 @@ const formTypeMapping = {
     'payment': 1, 'leave': 2, 'seal': 3, 'procurement': 4,
     'cash_withdraw': 5, 'copy_record': 6, 'data_access': 7
 };
+
+// 輔助函式：產生核准 PDF 文件
+async function generateApprovalPDF(applicationId, req) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const pdfDir = path.join(__dirname, '../public/uploads/pdfs');
+            if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
+
+            const [appRows] = await db.query(`
+                SELECT a.id, a.content, a.created_at, f.name AS form_name, u.name AS applicant_name 
+                FROM applications a
+                JOIN form_types f ON a.form_type_id = f.id
+                JOIN users u ON a.user_id = u.id
+                WHERE a.id = ?
+            `, [applicationId]);
+            
+            if (appRows.length === 0) return reject('表單不存在');
+            const appData = appRows[0];
+            const content = typeof appData.content === 'string' ? JSON.parse(appData.content) : appData.content;
+
+            const [logRows] = await db.query(`
+                SELECT l.step_number, u.name AS approver_name, l.action, l.comment, l.created_at
+                FROM approval_logs l
+                JOIN users u ON l.approver_id = u.id
+                WHERE l.application_id = ?
+                ORDER BY l.step_number ASC
+            `, [applicationId]);
+
+            const fileName = `approval_${applicationId}_${Date.now()}.pdf`;
+            const filePath = path.join(pdfDir, fileName);
+            
+            const doc = new PDFDocument({ margin: 50 });
+            const writeStream = fs.createWriteStream(filePath);
+            doc.pipe(writeStream);
+
+            // ⚠️ 確保 public/fonts 內有此中文字型檔，否則 PDF 無法顯示中文
+            const fontPath = path.join(__dirname, '../public/fonts/NotoSansTC-Regular.ttf');
+            if (fs.existsSync(fontPath)) {
+                doc.font(fontPath);
+            } else {
+                console.warn("找不到中文字型檔，PDF 可能無法正確顯示中文。");
+            }
+
+            doc.fontSize(20).text('行政表單 - 核准證明文件', { align: 'center' });
+            doc.moveDown(2);
+
+            doc.fontSize(12);
+            doc.text(`申請單號：#${appData.id}`);
+            doc.text(`申請人員：${appData.applicant_name}`);
+            doc.text(`表單類型：${appData.form_name}`);
+            doc.text(`建檔時間：${new Date(appData.created_at).toLocaleString('zh-TW')}`);
+            doc.moveDown(2);
+
+            doc.fontSize(16).text('【表單明細】');
+            doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+            doc.moveDown(0.5);
+
+            doc.fontSize(12);
+            const tDict = {
+                'payment_amount': '請款金額', 'payee_name': '受款人/廠商', 'payment_reason': '請款事由', 'receipt_file': '憑證檔案',
+                'leave_type': '假別', 'substitute': '代理人', 'leave_start': '開始時間', 'leave_end': '結束時間', 'leave_reason': '請假事由', 'proof_file': '證明文件',
+                'document_name': '文件名稱', 'seal_type': '印信種類', 'seal_copies': '用印份數', 'seal_reason': '用印事由', 'document_file': '文件電子檔',
+                'item_name': '申購物品', 'estimated_cost': '預估單價', 'quantity': '數量', 'procurement_reason': '申購原因', 'quote_file': '報價單',
+                'withdraw_amount': '提領金額', 'withdraw_date': '提領日期', 'withdraw_reason': '用途說明',
+                'copy_class': '班級名稱', 'copy_teacher': '授課老師', 'copy_content': '講義內容', 'copy_color': '影印類型', 'copy_pages': '總張數',
+                'data_target_type': '調閱對象', 'data_scope': '調閱範圍', 'data_purpose': '調閱目的'
+            };
+            const tVal = {
+                'annual': '特休', 'sick': '病假', 'personal': '事假', 'official': '公假',
+                'company': '補習班官印', 'representative': '班主任私章', 'both': '公司一般大小章', 'contract': '班主任職名章', 'sign': '班主任簽字章',
+                'black_white': '黑白', 'color': '彩色',
+                'student': '學生資料', 'parent': '家長資料', 'employee': '員工資料'
+            };
+
+            for (let key in content) {
+                if (key === 'formType' || key === 'userId' || key === 'data_compliance') continue;
+                let dKey = tDict[key] || key;
+                let dVal = tVal[content[key]] || content[key];
+                if (typeof dVal === 'string' && dVal.startsWith('/uploads/')) dVal = '(已提供電子附件)';
+                doc.text(`${dKey}：${dVal}`);
+                doc.moveDown(0.3);
+            }
+            doc.moveDown(1.5);
+
+            doc.fontSize(16).text('【簽核歷程紀錄】');
+            doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+            doc.moveDown(0.5);
+
+            doc.fontSize(12);
+            logRows.forEach(log => {
+                const actionText = log.action === 'APPROVE' ? '核准' : '駁回';
+                const timeStr = new Date(log.created_at).toLocaleString('zh-TW');
+                const stepRoleMap = { 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
+                const roleName = stepRoleMap[log.step_number] || '主管';
+                
+                doc.text(`[${roleName}] ${log.approver_name} - 狀態：${actionText}`);
+                doc.text(`時間：${timeStr}`);
+                doc.text(`意見：${log.comment || '無'}`);
+                doc.moveDown(0.8);
+            });
+
+            doc.end();
+
+            writeStream.on('finish', () => {
+                const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+                const host = req.get('host');
+                const fileUrl = `${protocol}://${host}/uploads/pdfs/${fileName}`;
+                resolve(fileUrl);
+            });
+            writeStream.on('error', (err) => reject(err));
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
 
 router.post('/apply', upload.any(), async (req, res) => {
     const { userId, formType, ...contentData } = req.body;
@@ -139,7 +255,16 @@ router.post('/:id/review', async (req, res) => {
 
         if (isFinal) {
             await db.query('UPDATE applications SET status = "APPROVED" WHERE id = ?', [applicationId]);
-            await notifyApplicant(applicantLineId, applicationId, formName, 'APPROVED_FINAL', null, null);
+            
+            // 產生 PDF 並取得下載網址
+            let pdfUrl = null;
+            try {
+                pdfUrl = await generateApprovalPDF(applicationId, req);
+            } catch (pdfErr) {
+                console.error("PDF 產生失敗：", pdfErr);
+            }
+
+            await notifyApplicant(applicantLineId, applicationId, formName, 'APPROVED_FINAL', null, null, pdfUrl);
             res.json({ success: true, message: '最終簽核完成，表單已正式結案。' });
         } else {
             await db.query('UPDATE applications SET current_step = ? WHERE id = ?', [nextStep, applicationId]);
