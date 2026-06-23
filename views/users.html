@@ -408,9 +408,18 @@
             window.location.href = '/';
         }
 
-        // 共用 API 呼叫函式
+        // 共用 API 呼叫函式 (加入身分驗證 Header)
         async function fetchAPI(url, options = {}) {
             try {
+                // 抓取當前登入者的身分
+                const userStr = localStorage.getItem('currentUser');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    if (!options.headers) options.headers = {};
+                    // 💡 就是這行！把你的角色放進標頭傳給後端
+                    options.headers['x-user-role'] = user.role;
+                }
+
                 const response = await fetch(url, options);
                 return await response.json();
             } catch (err) {
@@ -418,7 +427,6 @@
                 return { success: false, error: '伺服器連線異常' };
             }
         }
-
         // 讀取使用者列表
         async function loadUsers() {
             const result = await fetchAPI('/api/users');
