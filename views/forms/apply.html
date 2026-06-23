@@ -4,259 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>行政簽核系統 | 填寫申請單</title>
+    <title>行政申請系統 | 填寫表單</title>
     <style>
-        :root {
-            --primary-color: #0F4C81;
-            --sidebar-bg: #FFFFFF;
-            --bg-color: #F8FAFC;
-            --card-bg: #FFFFFF;
-            --text-main: #334155;
-            --text-light: #64748B;
-            --border-color: #E2E8F0;
-            --input-focus: #BAE6FD;
-            --radius-md: 8px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-        }
-
-        body {
-            display: flex;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
-        }
-
-        /* 導覽列與遮罩 (行動裝置專用) */
-        .mobile-header {
-            display: none;
-            background-color: var(--sidebar-bg);
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--border-color);
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            position: sticky;
-            top: 0;
-            z-index: 900;
-        }
-
-        .hamburger-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--primary-color);
-        }
-
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 998;
-        }
-
-        /* 側邊欄 */
-        .sidebar {
-            width: 250px;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--border-color);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-
-        .sidebar h2 {
-            color: var(--primary-color);
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-        }
-
-        .user-profile {
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .menu-item {
-            display: block;
-            padding: 12px 15px;
-            color: var(--text-main);
-            text-decoration: none;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            transition: background 0.2s;
-        }
-
-        .menu-item:hover {
-            background: #F8FAFC;
-        }
-
-        .menu-item.active {
-            background-color: #E2E8F0;
-            color: var(--primary-color);
-            font-weight: bold;
-            border-right: 4px solid var(--primary-color);
-        }
-
-        .text-danger {
-            color: #E53E3E;
-            margin-top: auto;
-        }
-
-        /* 主要內容區與表單樣式 */
-        .main-content {
-            flex: 1;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            overflow-y: auto;
-        }
-
-        .form-container {
-            background-color: var(--card-bg);
-            width: 100%;
-            max-width: 600px;
-            padding: 30px;
-            border-radius: var(--radius-md);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        }
-
-        .form-header {
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-        }
-
-        .form-header h2 {
-            color: var(--primary-color);
-            font-size: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: all 0.3s;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px var(--input-focus);
-        }
-
-        .dynamic-fields {
-            background-color: #F8FAFC;
-            padding: 20px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 20px;
-        }
-
-        .btn-submit {
-            width: 100%;
-            padding: 14px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .btn-submit:hover {
-            background-color: #165b99;
-        }
-
-        /* 響應式設定 (RWD) */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-
-            .mobile-header {
-                display: flex;
-            }
-
-            .sidebar {
-                position: fixed;
-                left: -250px;
-                top: 0;
-                height: 100vh;
-                z-index: 999;
-                transition: left 0.3s ease;
-                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-            }
-
-            .sidebar.active {
-                left: 0;
-            }
-
-            .sidebar-overlay.active {
-                display: block;
-            }
-
-            .main-content {
-                padding: 20px 15px;
-            }
-
-            .form-container {
-                padding: 20px;
-            }
-        }
+        :root { --primary-color: #0F4C81; --bg-color: #F8FAFC; --card-bg: #FFFFFF; --text-main: #334155; --text-light: #64748B; --border-color: #E2E8F0; --input-focus: #BAE6FD; --radius-md: 8px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 40px 20px; display: flex; justify-content: center; }
+        .form-container { background-color: var(--card-bg); width: 100%; max-width: 600px; padding: 30px; border-radius: var(--radius-md); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .form-header { border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+        .form-header h2 { color: var(--primary-color); font-size: 1.5rem; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; }
+        .form-control { width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; transition: all 0.3s; }
+        .form-control:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--input-focus); }
+        .dynamic-fields { background-color: #F8FAFC; padding: 20px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .btn-submit { width: 100%; padding: 14px; background-color: var(--primary-color); color: white; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
+        .btn-submit:hover { background-color: #165b99; }
+        .btn-back { display: inline-block; padding: 10px 15px; margin-bottom: 20px; background-color: #E2E8F0; color: #333; text-decoration: none; border-radius: 6px; font-size: 0.9rem; font-weight: bold; }
     </style>
 </head>
 
 <body>
-    <div class="mobile-header">
-        <h2 style="color: var(--primary-color); font-size: 1.2rem; margin: 0;">行政簽核系統</h2>
-        <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
-    </div>
-
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenu()"></div>
-
-    <div class="sidebar" id="sidebar">
-        <h2 class="desktop-only">行政簽核系統</h2>
-        <div class="user-profile">
-            <div id="userName" style="font-weight: bold; color: var(--primary-color);">讀取中...</div>
-            <div id="userRole" style="font-size: 0.85rem; color: #7A8B9A; margin-top: 5px;"></div>
-        </div>
-        <nav>
-            <a href="/dashboard" class="menu-item">大廳首頁</a>
-            <a href="/apply" class="menu-item active">填寫申請單</a>
-            <a href="/users" class="menu-item" id="adminMenu" style="display: none;">權限管理</a>
-            <a href="#" class="menu-item text-danger" onclick="logout()" style="margin-top: 30px;">登出系統</a>
-        </nav>
-    </div>
-
-    <div class="main-content">
+    <div>
+        <a href="/dashboard" class="btn-back">⬅ 返回大廳</a>
         <div class="form-container">
             <div class="form-header">
                 <h2>建立新申請單</h2>
@@ -279,51 +48,12 @@
                 </div>
 
                 <div id="dynamicFieldsContainer" class="dynamic-fields" style="display: none;"></div>
-
-                <button type="submit" class="btn-submit" id="submitBtn">送出申請單</button>
+                <button type="submit" class="btn-submit" id="submitBtn">送出申請單 ➔</button>
             </form>
         </div>
     </div>
 
     <script>
-        // 初始化與權限驗證
-        document.addEventListener('DOMContentLoaded', () => {
-            const userStr = localStorage.getItem('currentUser');
-            if (!userStr) {
-                window.location.href = '/';
-                return;
-            }
-
-            const user = JSON.parse(userStr);
-            document.getElementById('userName').textContent = user.name;
-
-            const roleMap = {
-                'EMPLOYEE': '一般員工',
-                'MANAGER': '單位主管',
-                'DIRECTOR': '管理部主任',
-                'CISO': '資安長',
-                'PRINCIPAL': '班主任'
-            };
-            document.getElementById('userRole').textContent = roleMap[user.role] || user.role;
-
-            if (['PRINCIPAL', 'CISO', 'DIRECTOR'].includes(user.role)) {
-                document.getElementById('adminMenu').style.display = 'block';
-            }
-        });
-
-        // 手機版選單切換
-        function toggleMenu() {
-            document.getElementById('sidebar').classList.toggle('active');
-            document.getElementById('sidebarOverlay').classList.toggle('active');
-        }
-
-        // 登出系統
-        function logout() {
-            localStorage.removeItem('currentUser');
-            window.location.href = '/';
-        }
-
-        // 表單欄位配置設定
         const formTemplates = {
             payment: `
                 <div class="form-group"><label>請款金額 (NT$)</label><input type="number" name="payment_amount" class="form-control" required min="1"></div>
@@ -333,7 +63,12 @@
             `,
             leave: `
                 <div class="form-group"><label>假別</label><select name="leave_type" class="form-control" required><option value="annual">特休</option><option value="sick">病假</option><option value="personal">事假</option><option value="official">公假</option></select></div>
-                <div class="form-group"><label>職務代理人</label><input type="text" name="substitute" class="form-control" required></div>
+                <div class="form-group">
+                    <label>職務代理人 (必選)</label>
+                    <select name="substitute_info" id="substituteSelect" class="form-control" required>
+                        <option value="">讀取名單中...</option>
+                    </select>
+                </div>
                 <div class="form-group"><label>開始時間</label><input type="datetime-local" name="leave_start" class="form-control" required></div>
                 <div class="form-group"><label>結束時間</label><input type="datetime-local" name="leave_end" class="form-control" required></div>
                 <div class="form-group"><label>請假事由</label><textarea name="leave_reason" class="form-control" rows="3" required></textarea></div>
@@ -359,10 +94,9 @@
                 <div class="form-group"><label>資金用途說明</label><textarea name="withdraw_reason" class="form-control" rows="3" required></textarea></div>
             `,
             copy_record: `
-                <div class="form-group"><label>班級名稱</label><input type="text" name="class" class="form-control" required></div>
-                <div class="form-group"><label>授課老師</label><input type="text" name="teacher" class="form-control" required></div>
-                <div class="form-group"><label>講義內容</label><input type="text" name="text" class="form-control" required></div>
-
+                <div class="form-group"><label>班級名稱</label><input type="text" name="copy_class" class="form-control" required></div>
+                <div class="form-group"><label>授課老師</label><input type="text" name="copy_teacher" class="form-control" required></div>
+                <div class="form-group"><label>講義內容</label><input type="text" name="copy_content" class="form-control" required></div>
                 <div class="form-group"><label>影印類型</label><select name="copy_color" class="form-control" required><option value="black_white">黑白</option><option value="color">彩色</option></select></div>
                 <div class="form-group"><label>總張數</label><input type="number" name="copy_pages" class="form-control" required min="1"></div>
             `,
@@ -374,64 +108,69 @@
             `
         };
 
-        // 動態渲染表單欄位
+        async function loadUserOptions() {
+            try {
+                const response = await fetch('/api/users/list/basic');
+                const result = await response.json();
+                const select = document.getElementById('substituteSelect');
+                if (select && result.success) {
+                    select.innerHTML = '<option value="">請選擇代理人...</option>';
+                    const roleMap = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
+                    result.data.forEach(u => {
+                        select.innerHTML += `<option value="${u.id}:${u.name}">${u.name} (${roleMap[u.role] || u.role})</option>`;
+                    });
+                }
+            } catch (e) { console.error('讀取名單失敗'); }
+        }
+
         function renderFormFields() {
             const type = document.getElementById('formTypeSelector').value;
             const container = document.getElementById('dynamicFieldsContainer');
             if (type && formTemplates[type]) {
                 container.innerHTML = formTemplates[type];
                 container.style.display = 'block';
+                if (type === 'leave') loadUserOptions();
             } else {
                 container.style.display = 'none';
                 container.innerHTML = '';
             }
         }
 
-        // 表單提交處理
         document.getElementById('applyForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
             const userStr = localStorage.getItem('currentUser');
-            if (!userStr) {
-                alert('登入狀態已失效，請重新登入。');
-                window.location.href = '/';
-                return;
-            }
+            if (!userStr) { alert('登入狀態已失效，請重新登入。'); window.location.href = '/'; return; }
 
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.textContent = '表單傳送中，請稍候...';
+            submitBtn.textContent = '表單傳送中，請稍候... ⏳';
             submitBtn.style.backgroundColor = '#7A8B9A';
 
             try {
                 const user = JSON.parse(userStr);
                 const formType = document.getElementById('formTypeSelector').value;
 
-                // 收集表單資料 (包含檔案)
                 const formData = new FormData(this);
                 formData.append('formType', formType);
                 formData.append('userId', user.id);
 
-                const response = await fetch('/api/forms/apply', {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const response = await fetch('/api/forms/apply', { method: 'POST', body: formData });
                 const result = await response.json();
+
                 if (result.success) {
-                    alert('表單與附件送出成功，已進入簽核流程。');
+                    alert('表單與附件送出成功！已進入簽核流程。');
                     window.location.href = '/dashboard';
                 } else {
                     alert('送出失敗：' + result.error);
                     submitBtn.disabled = false;
-                    submitBtn.textContent = '送出申請單';
+                    submitBtn.textContent = '送出申請單 ➔';
                     submitBtn.style.backgroundColor = 'var(--primary-color)';
                 }
             } catch (err) {
                 alert('系統發生錯誤，無法連線至伺服器。');
-                console.error(err);
                 submitBtn.disabled = false;
-                submitBtn.textContent = '送出申請單';
+                submitBtn.textContent = '送出申請單 ➔';
                 submitBtn.style.backgroundColor = 'var(--primary-color)';
             }
         });
