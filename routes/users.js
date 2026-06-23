@@ -2,17 +2,21 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// 權限驗證中介軟體：檢查請求者是否為資安長
-const requireCISO = (req, res, next) => {
+// 權限驗證中介軟體：檢查請求者是否為高階主管
+const requireAdmin = (req, res, next) => {
     const role = req.headers['x-user-role'];
-    if (role !== 'CISO') {
-        return res.status(403).json({ success: false, message: '權限不足，僅限資安長執行此系統設定操作。' });
+
+    // 💡 放寬權限：允許資安長、班主任、管理部主任進入管理後台
+    const allowedRoles = ['CISO', 'PRINCIPAL', 'DIRECTOR'];
+
+    if (!allowedRoles.includes(role)) {
+        return res.status(403).json({ success: false, message: '權限不足，僅限高階主管執行此系統設定操作。' });
     }
     next();
 };
 
 // API: 取得所有使用者清單 (基於安全性考量，不回傳密碼欄位)
-router.get('/', requireCISO, async (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
     try {
         const [users] = await db.query('SELECT id, name, email, role FROM users ORDER BY id DESC');
         res.json({ success: true, data: users });
@@ -22,7 +26,7 @@ router.get('/', requireCISO, async (req, res) => {
 });
 
 // API: 新增使用者
-router.post('/', requireCISO, async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
     const { name, email, password, role } = req.body;
     try {
         await db.query(
@@ -37,7 +41,7 @@ router.post('/', requireCISO, async (req, res) => {
 });
 
 // API: 更新使用者資料與權限
-router.put('/:id', requireCISO, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
     const userId = req.params.id;
     const { name, email, password, role } = req.body;
     try {
@@ -59,7 +63,7 @@ router.put('/:id', requireCISO, async (req, res) => {
 });
 
 // API: 刪除使用者
-router.delete('/:id', requireCISO, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
     const userId = req.params.id;
     try {
         await db.query('DELETE FROM users WHERE id = ?', [userId]);
