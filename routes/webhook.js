@@ -12,23 +12,23 @@ const stepRoleMap = { 0: '職務代理人', 1: '單位主管', 2: '管理部主�
 function buildFlexMessage(formId, formName, applicantName, applyDateStr, contentData) {
     const tDict = { 'payment_amount': '請款金額', 'payee_name': '受款人/廠商', 'payment_reason': '請款事由', 'receipt_file': '憑證檔案', 'leave_type': '假別', 'substitute': '代理人', 'leave_start': '開始時間', 'leave_end': '結束時間', 'leave_reason': '請假事由', 'proof_file': '證明文件', 'document_name': '文件名稱', 'seal_type': '印信種類', 'seal_copies': '用印份數', 'seal_reason': '用印事由', 'document_file': '文件電子檔', 'item_name': '申購物品', 'estimated_cost': '預估單價', 'quantity': '數量', 'procurement_reason': '申購原因', 'quote_file': '報價單', 'withdraw_amount': '提領金額', 'withdraw_date': '提領日期', 'withdraw_reason': '用途說明', 'copy_class': '班級名稱', 'copy_teacher': '授課老師', 'copy_content': '講義內容', 'copy_color': '影印類型', 'copy_pages': '總張數', 'data_target_type': '調閱對象', 'data_scope': '調閱範圍', 'data_purpose': '調閱目的' };
     const tVal = { 'annual': '特休', 'sick': '病假', 'personal': '事假', 'official': '公假', 'company': '補習班官印', 'representative': '班主任私章', 'both': '公司一般大小章', 'contract': '班主任職名章', 'sign': '班主任簽字章', 'black_white': '黑白', 'color': '彩色', 'student': '學生資料', 'parent': '家長資料', 'employee': '員工資料' };
-    
+
     let detailContents = [];
     for (let key in contentData) {
         if (key === 'formType' || key === 'userId' || key === 'data_compliance' || key === 'substitute_id') continue;
         let dKey = tDict[key] || key;
         let dVal = tVal[contentData[key]] || contentData[key];
         if (typeof dVal === 'string' && dVal.startsWith('/uploads/')) dVal = '(已附電子檔，請至系統查看)';
-        detailContents.push({ "type": "box", "layout": "horizontal", "margin": "sm", "contents": [ { "type": "text", "text": dKey, "size": "sm", "color": "#888888", "flex": 3 }, { "type": "text", "text": String(dVal), "size": "sm", "color": "#333333", "flex": 5, "wrap": true } ] });
+        detailContents.push({ "type": "box", "layout": "horizontal", "margin": "sm", "contents": [{ "type": "text", "text": dKey, "size": "sm", "color": "#888888", "flex": 3 }, { "type": "text", "text": String(dVal), "size": "sm", "color": "#333333", "flex": 5, "wrap": true }] });
     }
     if (detailContents.length === 0) detailContents.push({ "type": "text", "text": "無明細資料", "size": "sm", "color": "#888888" });
 
-    return { type: "bubble", size: "mega", header: { "type": "box", "layout": "vertical", "backgroundColor": "#0F4C81", "contents": [ { "type": "text", "text": "待簽核任務", "color": "#ffffff", "weight": "bold", "size": "sm" }, { "type": "text", "text": `【${formName}】`, "color": "#ffffff", "weight": "bold", "size": "xl", "margin": "sm" } ] }, body: { "type": "box", "layout": "vertical", "contents": [ { "type": "box", "layout": "horizontal", "margin": "md", "contents": [ { "type": "text", "text": "申請人", "size": "sm", "color": "#888888", "flex": 3 }, { "type": "text", "text": applicantName, "size": "sm", "color": "#0F4C81", "weight": "bold", "flex": 5 } ] }, { "type": "box", "layout": "horizontal", "margin": "md", "contents": [ { "type": "text", "text": "申請日期", "size": "sm", "color": "#888888", "flex": 3 }, { "type": "text", "text": applyDateStr, "size": "sm", "color": "#333333", "flex": 5 } ] }, { "type": "separator", "margin": "lg", "color": "#E2E8F0" }, { "type": "box", "layout": "vertical", "margin": "lg", "contents": detailContents } ] }, footer: { "type": "box", "layout": "horizontal", "spacing": "sm", "contents": [ { "type": "button", "style": "primary", "color": "#38A169", "action": { "type": "postback", "label": "核准", "data": `action=APPROVE&formId=${formId}` } }, { "type": "button", "style": "primary", "color": "#E53E3E", "action": { "type": "postback", "label": "駁回", "data": `action=REJECT&formId=${formId}` } } ] } };
+    return { type: "bubble", size: "mega", header: { "type": "box", "layout": "vertical", "backgroundColor": "#0F4C81", "contents": [{ "type": "text", "text": "待簽核任務", "color": "#ffffff", "weight": "bold", "size": "sm" }, { "type": "text", "text": `【${formName}】`, "color": "#ffffff", "weight": "bold", "size": "xl", "margin": "sm" }] }, body: { "type": "box", "layout": "vertical", "contents": [{ "type": "box", "layout": "horizontal", "margin": "md", "contents": [{ "type": "text", "text": "申請人", "size": "sm", "color": "#888888", "flex": 3 }, { "type": "text", "text": applicantName, "size": "sm", "color": "#0F4C81", "weight": "bold", "flex": 5 }] }, { "type": "box", "layout": "horizontal", "margin": "md", "contents": [{ "type": "text", "text": "申請日期", "size": "sm", "color": "#888888", "flex": 3 }, { "type": "text", "text": applyDateStr, "size": "sm", "color": "#333333", "flex": 5 }] }, { "type": "separator", "margin": "lg", "color": "#E2E8F0" }, { "type": "box", "layout": "vertical", "margin": "lg", "contents": detailContents }] }, footer: { "type": "box", "layout": "horizontal", "spacing": "sm", "contents": [{ "type": "button", "style": "primary", "color": "#38A169", "action": { "type": "postback", "label": "核准", "data": `action=APPROVE&formId=${formId}` } }, { "type": "button", "style": "primary", "color": "#E53E3E", "action": { "type": "postback", "label": "駁回", "data": `action=REJECT&formId=${formId}` } }] } };
 }
 
 function buildPendingStatusMessage(formId, formName, currentStep) {
     const roleName = stepRoleMap[currentStep] || '未知主管';
-    return { type: "bubble", size: "micro", header: { "type": "box", "layout": "vertical", "backgroundColor": "#D69E2E", "contents": [ { "type": "text", "text": "審核進行中", "color": "#ffffff", "weight": "bold", "size": "sm" } ] }, body: { "type": "box", "layout": "vertical", "paddingAll": "15px", "contents": [ { "type": "text", "text": formName, "weight": "bold", "size": "md", "wrap": true }, { "type": "text", "text": `單號：#${formId}`, "size": "xs", "color": "#888888", "margin": "sm" }, { "type": "separator", "margin": "md" }, { "type": "text", "text": "目前進度卡在：", "size": "xs", "color": "#888888", "margin": "md" }, { "type": "text", "text": roleName, "size": "sm", "color": "#E53E3E", "weight": "bold", "margin": "xs" } ] } };
+    return { type: "bubble", size: "micro", header: { "type": "box", "layout": "vertical", "backgroundColor": "#D69E2E", "contents": [{ "type": "text", "text": "審核進行中", "color": "#ffffff", "weight": "bold", "size": "sm" }] }, body: { "type": "box", "layout": "vertical", "paddingAll": "15px", "contents": [{ "type": "text", "text": formName, "weight": "bold", "size": "md", "wrap": true }, { "type": "text", "text": `單號：#${formId}`, "size": "xs", "color": "#888888", "margin": "sm" }, { "type": "separator", "margin": "md" }, { "type": "text", "text": "目前進度卡在：", "size": "xs", "color": "#888888", "margin": "md" }, { "type": "text", "text": roleName, "size": "sm", "color": "#E53E3E", "weight": "bold", "margin": "xs" }] } };
 }
 
 async function notifyNextApprovers(applicationId) {
@@ -78,7 +78,7 @@ async function notifyApplicant(lineUserId, formId, formName, status, nextStepNum
         title = "簽核進度更新"; color = "#D69E2E"; const nextRoleName = stepRoleMap[nextStepNum] || '主管';
         desc = `您的「${formName}」已通過審核！\n目前轉交【${nextRoleName}】簽核中。`;
     }
-    const flexMsg = { type: "flex", altText: `單號 #${formId} 狀態更新`, contents: { type: "bubble", size: "kilo", body: { type: "box", layout: "vertical", spacing: "sm", paddingAll: "20px", contents: [ { type: "text", text: title, weight: "bold", color: color, size: "lg" }, { type: "text", text: `單號：#${formId}`, size: "sm", color: "#888888" }, { type: "separator", margin: "md", color: "#E2E8F0" }, { type: "text", text: desc, wrap: true, size: "md", color: "#333333", margin: "md" } ] }, footer: buttons.length > 0 ? { type: "box", layout: "vertical", contents: buttons } : undefined } };
+    const flexMsg = { type: "flex", altText: `單號 #${formId} 狀態更新`, contents: { type: "bubble", size: "kilo", body: { type: "box", layout: "vertical", spacing: "sm", paddingAll: "20px", contents: [{ type: "text", text: title, weight: "bold", color: color, size: "lg" }, { type: "text", text: `單號：#${formId}`, size: "sm", color: "#888888" }, { type: "separator", margin: "md", color: "#E2E8F0" }, { type: "text", text: desc, wrap: true, size: "md", color: "#333333", margin: "md" }] }, footer: buttons.length > 0 ? { type: "box", layout: "vertical", contents: buttons } : undefined } };
     await sendLineMessage(lineUserId, flexMsg);
 }
 
@@ -156,7 +156,7 @@ router.post('/line', async (req, res) => {
                             try {
                                 const c = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
                                 return String(c.substitute_id) === String(user.id);
-                            } catch(e) { return false; }
+                            } catch (e) { return false; }
                         }
                         return true;
                     }).slice(0, 10);
@@ -198,7 +198,7 @@ router.post('/line', async (req, res) => {
             try {
                 const [users] = await db.query('SELECT id, role, name FROM users WHERE line_user_id = ?', [lineUserId]);
                 if (users.length === 0) return await replyLineMessage(event.replyToken, '此帳號尚未綁定系統。');
-                
+
                 const [apps] = await db.query(`SELECT a.current_step, a.status, a.form_type_id, u.line_user_id AS applicant_line_id, u.role AS applicant_role, f.name AS form_name FROM applications a JOIN users u ON a.user_id = u.id JOIN form_types f ON a.form_type_id = f.id WHERE a.id = ?`, [formId]);
 
                 if (apps.length === 0) return await replyLineMessage(event.replyToken, `單號 #${formId} 查無資料。`);
@@ -223,14 +223,14 @@ router.post('/line', async (req, res) => {
                     else if (form.current_step === 1) nextStep = 2;
                     else if (form.current_step === 2) {
                         if (form.form_type_id === 7) {
-                            if (form.applicant_role === 'CISO') isFinal = true; 
+                            if (form.applicant_role === 'CISO') isFinal = true;
                             else nextStep = 3;
                         }
                         else if (form.form_type_id === 3) {
-                            if (form.applicant_role === 'CISO') nextStep = 4; 
+                            if (form.applicant_role === 'CISO') nextStep = 4;
                             else nextStep = 3;
                         }
-                        else nextStep = 4; 
+                        else nextStep = 4;
                     }
                     else if (form.current_step === 3) {
                         if (form.form_type_id === 7) isFinal = true;
@@ -259,13 +259,13 @@ router.post('/line', async (req, res) => {
 async function replyLineMessage(replyToken, messageContent) {
     if (!LINE_TOKEN) return;
     const messagesObj = Array.isArray(messageContent) ? messageContent : (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
-    try { await axios.post('https://api.line.me/v2/bot/message/reply', { replyToken: replyToken, messages: messagesObj }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } }); } catch (err) {}
+    try { await axios.post('https://api.line.me/v2/bot/message/reply', { replyToken: replyToken, messages: messagesObj }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } }); } catch (err) { }
 }
 
 async function sendLineMessage(lineUserId, messageContent) {
     if (!lineUserId || !LINE_TOKEN) return;
     const messagesObj = Array.isArray(messageContent) ? messageContent : (typeof messageContent === 'string' ? [{ type: 'text', text: messageContent }] : [messageContent]);
-    try { await axios.post('https://api.line.me/v2/bot/message/push', { to: lineUserId, messages: messagesObj }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } }); } catch (err) {}
+    try { await axios.post('https://api.line.me/v2/bot/message/push', { to: lineUserId, messages: messagesObj }, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LINE_TOKEN}` } }); } catch (err) { }
 }
 
 module.exports = { router, sendLineMessage, notifyNextApprovers, notifyApplicant };

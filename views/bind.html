@@ -1,22 +1,93 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>系統帳號綁定</title>
     <style>
-        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #F4F7F6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 350px; text-align: center; }
-        .logo { font-size: 40px; margin-bottom: 10px; color: #0F4C81; }
-        h2 { color: #0F4C81; margin-bottom: 5px; font-size: 1.4rem; }
-        p { color: #7A8B9A; font-size: 0.9rem; margin-bottom: 25px; }
-        .form-group { text-align: left; margin-bottom: 15px; }
-        label { display: block; font-size: 0.9rem; color: #333; margin-bottom: 5px; font-weight: bold; }
-        input { width: 100%; padding: 12px; border: 1px solid #E2E8F0; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background-color: #0F4C81; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        .success-msg { display: none; color: #38A169; font-weight: bold; font-size: 1.1rem; padding: 20px 0; }
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: #F4F7F6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 40px;
+            margin-bottom: 10px;
+            color: #0F4C81;
+        }
+
+        h2 {
+            color: #0F4C81;
+            margin-bottom: 5px;
+            font-size: 1.4rem;
+        }
+
+        p {
+            color: #7A8B9A;
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: #333;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #0F4C81;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .success-msg {
+            display: none;
+            color: #38A169;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 20px 0;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="logo">行政簽核系統</div>
@@ -45,7 +116,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const lineId = urlParams.get('lineId');
 
-        if(!lineId) {
+        if (!lineId) {
             alert('連結無效，請從 LINE 重新點擊連結。');
             document.getElementById('bindForm').style.display = 'none';
         }
@@ -69,7 +140,7 @@
                 });
 
                 const result = await response.json();
-                if(result.success) {
+                if (result.success) {
                     // 綁定成功後顯示提示訊息
                     document.getElementById('bindForm').style.display = 'none';
                     document.getElementById('successMsg').style.display = 'block';
@@ -86,4 +157,5 @@
         });
     </script>
 </body>
+
 </html>
