@@ -100,7 +100,6 @@ router.post('/line', async (req, res) => {
                 const baseUrl = `https://${req.headers.host}`;
                 await replyLineMessage(event.replyToken, `請點擊下方專屬安全連結，前往網頁進行帳號綁定：\n\n🔗 ${baseUrl}/bind?lineId=${lineUserId}`);
             }
-            // 💡 邏輯 1：純自己的待簽核
             else if (text === '待簽核項目') {
                 try {
                     const [users] = await db.query('SELECT id, role FROM users WHERE line_user_id = ?', [lineUserId]);
@@ -109,19 +108,20 @@ router.post('/line', async (req, res) => {
                     const user = users[0];
                     let targetSteps = [];
 
-                    if (user.role === 'CISO') targetSteps = [1, 2, 3, 4];
+                    // 💡 資安長自己的單只看第3關
+                    if (user.role === 'CISO') targetSteps = [3];
                     else {
                         if (user.role === 'MANAGER' || user.role === '櫃檯主任') targetSteps.push(1);
                         if (user.role === 'DIRECTOR') targetSteps.push(2);
                         if (user.role === 'PRINCIPAL') targetSteps.push(4);
                     }
 
-                    if (targetSteps.length === 0) return await replyLineMessage(event.replyToken, '您目前的帳號權限無簽核需求。');
+                    if (targetSteps.length === 0) return await replyLineMessage(event.replyToken, '您目前的帳號權限無個人簽核需求。');
 
                     const [forms] = await db.query(`SELECT a.id, f.name AS form_name, u.name AS applicant_name, a.created_at, a.content FROM applications a JOIN form_types f ON a.form_type_id = f.id JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' AND a.current_step IN (?) ORDER BY a.created_at ASC LIMIT 10`, [targetSteps]);
 
                     if (forms.length === 0) {
-                        await replyLineMessage(event.replyToken, '太棒了！目前沒有需要您簽核的個人單據。');
+                        await replyLineMessage(event.replyToken, '目前沒有需要您親自簽核的單據。');
                     } else {
                         const bubbles = forms.map(f => {
                             const contentData = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
@@ -132,7 +132,28 @@ router.post('/line', async (req, res) => {
                     }
                 } catch (err) { console.error(err); }
             }
-            // 💡 邏輯 2：全新的代理清單查詢
+            // 💡 新增：上帝視角指令
+            else if (text === '全公司待簽核' || text === '特權簽核項目') {
+                try {
+                    const [users] = await db.query('SELECT id, role FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return;
+                    const user = users[0];
+                    if (user.role !== 'CISO') return await replyLineMessage(event.replyToken, '此功能僅限「資安長」使用。');
+
+                    const [forms] = await db.query(`SELECT a.id, f.name AS form_name, u.name AS applicant_name, a.created_at, a.content FROM applications a JOIN form_types f ON a.form_type_id = f.id JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' ORDER BY a.created_at ASC LIMIT 10`);
+
+                    if (forms.length === 0) {
+                        await replyLineMessage(event.replyToken, '公司目前無任何簽核中的單據！');
+                    } else {
+                        const bubbles = forms.map(f => {
+                            const contentData = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
+                            const applyDateStr = new Date(f.created_at).toLocaleDateString('zh-TW');
+                            return buildFlexMessage(f.id, f.form_name, f.applicant_name, applyDateStr, contentData);
+                        });
+                        await replyLineMessage(event.replyToken, { type: "flex", altText: `全公司待簽核 (${forms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
+                    }
+                } catch (err) { console.error(err); }
+            }
             else if (text === '代理簽核項目') {
                 try {
                     const [users] = await db.query('SELECT id, role FROM users WHERE line_user_id = ?', [lineUserId]);
@@ -173,7 +194,6 @@ router.post('/line', async (req, res) => {
                     }
                 } catch (err) { console.error(err); }
             }
-            // 💡 邏輯 3：員工查自己的單進度
             else if (text === '簽核中項目') {
                 try {
                     const [users] = await db.query('SELECT id FROM users WHERE line_user_id = ?', [lineUserId]);

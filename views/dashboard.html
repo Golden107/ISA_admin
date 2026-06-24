@@ -131,6 +131,7 @@
             margin-bottom: 25px;
             border-bottom: 2px solid var(--border-color);
             padding-bottom: 10px;
+            flex-wrap: wrap;
         }
 
         .tab {
@@ -139,6 +140,7 @@
             border-radius: 4px;
             color: #7A8B9A;
             font-weight: bold;
+            transition: 0.2s;
         }
 
         .tab.active {
@@ -315,7 +317,6 @@
             width: 130px;
         }
 
-        /* 新增表單燈箱專用樣式 */
         .form-control {
             width: 100%;
             padding: 10px 12px;
@@ -383,10 +384,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .tabs {
-                flex-wrap: wrap;
-            }
-
             .data-table {
                 display: block;
                 overflow-x: auto;
@@ -410,7 +407,6 @@
         </div>
         <nav>
             <a href="#" class="menu-item active" onclick="closeSidebar()">大廳首頁</a>
-            <!-- 💡 將原本的連結改為開啟燈箱 -->
             <a href="#" class="menu-item" onclick="openApplyModal(); closeSidebar();">填寫申請單</a>
             <a href="/users" class="menu-item" id="adminMenu" style="display: none;">權限管理</a>
             <a href="#" class="menu-item" onclick="openPasswordModal(); closeSidebar();"
@@ -448,6 +444,9 @@
         <div class="tabs">
             <div class="tab active" id="tab-btn-pending" onclick="switchTab('pending', this)">待我簽核</div>
             <div class="tab" id="tab-btn-delegate" onclick="switchTab('delegate', this)">代理簽核區</div>
+            <!-- 💡 新增：資安長專屬特權頁籤 -->
+            <div class="tab" id="tab-btn-ciso" onclick="switchTab('ciso', this)"
+                style="display: none; background: #E53E3E; color: white;">特權核准 (全公司)</div>
             <div class="tab" id="tab-btn-history" onclick="switchTab('history', this)">我的申請紀錄</div>
         </div>
 
@@ -490,6 +489,27 @@
             </table>
         </div>
 
+        <!-- 💡 新增：全公司待簽核表格區 -->
+        <div id="ciso-tab" class="tab-content">
+            <table class="data-table" id="cisoTable">
+                <thead>
+                    <tr>
+                        <th>單號</th>
+                        <th>申請人</th>
+                        <th>表單類型</th>
+                        <th>目前卡在哪一關</th>
+                        <th>申請時間</th>
+                        <th>強制操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="6" class="empty-state">資料讀取中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
         <div id="history-tab" class="tab-content">
             <table class="data-table" id="historyTable">
                 <thead>
@@ -510,18 +530,16 @@
         </div>
     </div>
 
-    <!-- 💡 新增：填寫表單的專屬燈箱 -->
+    <!-- 申請單燈箱 -->
     <div class="modal-overlay" id="applyModal">
         <div class="modal-container" style="max-width: 600px;">
             <div class="modal-header">
-                <h3>建立新申請單</h3>
-                <button class="close-btn" onclick="closeApplyModal()">✖</button>
+                <h3>建立新申請單</h3><button class="close-btn" onclick="closeApplyModal()">✖</button>
             </div>
             <div class="modal-body">
                 <form id="applyForm" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="formTypeSelector">表單類型</label>
-                        <select id="formTypeSelector" class="form-control" required onchange="renderFormFields()">
+                    <div class="form-group"><label>表單類型</label><select id="formTypeSelector" class="form-control"
+                            required onchange="renderFormFields()">
                             <option value="" disabled selected>請選擇申請項目</option>
                             <option value="payment">請款申請單</option>
                             <option value="leave">請假申請單</option>
@@ -530,19 +548,13 @@
                             <option value="cash_withdraw">現金提領申請單</option>
                             <option value="copy_record">影印登記表</option>
                             <option value="data_access">個資調閱申請單</option>
-                        </select>
-                    </div>
-
+                        </select></div>
                     <div id="dynamicFieldsContainer" class="dynamic-fields" style="display: none;"></div>
-
-                    <div style="text-align: right; margin-top: 15px;">
-                        <button type="button" class="btn-action"
+                    <div style="text-align: right; margin-top: 15px;"><button type="button" class="btn-action"
                             style="background:#CBD5E0; color:#333; padding: 10px 15px;"
-                            onclick="closeApplyModal()">取消</button>
-                        <button type="submit" class="btn-action"
+                            onclick="closeApplyModal()">取消</button><button type="submit" class="btn-action"
                             style="background:var(--primary-color); padding: 10px 15px;" id="submitApplyBtn">送出申請單
-                            ➔</button>
-                    </div>
+                            ➔</button></div>
                 </form>
             </div>
         </div>
@@ -552,13 +564,11 @@
     <div class="modal-overlay" id="detailModal">
         <div class="modal-container">
             <div class="modal-header">
-                <h3 id="modalTitle">申請單明細</h3>
-                <button class="close-btn" onclick="closeModal()">✖</button>
+                <h3 id="modalTitle">申請單明細</h3><button class="close-btn" onclick="closeModal()">✖</button>
             </div>
             <div class="modal-body" id="modalBody"></div>
-            <div class="modal-footer">
-                <button class="btn-action" style="background:#CBD5E0; color:#333;" onclick="closeModal()">關閉視窗</button>
-            </div>
+            <div class="modal-footer"><button class="btn-action" style="background:#CBD5E0; color:#333;"
+                    onclick="closeModal()">關閉視窗</button></div>
         </div>
     </div>
 
@@ -588,58 +598,14 @@
     <script>
         let allFormsData = {};
 
-        // 💡 融合原本 apply.html 的表單模板
         const formTemplates = {
-            payment: `
-                <div class="form-group"><label>請款金額 (NT$)</label><input type="number" name="payment_amount" class="form-control" required min="1"></div>
-                <div class="form-group"><label>受款人/廠商名稱</label><input type="text" name="payee_name" class="form-control" required></div>
-                <div class="form-group"><label>請款事由說明</label><textarea name="payment_reason" class="form-control" rows="3" required></textarea></div>
-            `,
-            leave: `
-                <div class="form-group"><label>假別</label><select name="leave_type" class="form-control" required><option value="annual">特休</option><option value="sick">病假</option><option value="personal">事假</option><option value="official">公假</option></select></div>
-                <div class="form-group">
-                    <label>職務代理人 (必選)</label>
-                    <select name="substitute_info" id="substituteSelect" class="form-control" required>
-                        <option value="">讀取名單中...</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>開始時間</label><input type="datetime-local" name="leave_start" class="form-control" required></div>
-                <div class="form-group"><label>結束時間</label><input type="datetime-local" name="leave_end" class="form-control" required></div>
-                <div class="form-group"><label>請假事由</label><textarea name="leave_reason" class="form-control" rows="3" required></textarea></div>
-                <div class="form-group"><label>證明文件 (選填)</label><input type="file" name="proof_file" class="form-control" accept="image/*,.pdf"></div>
-            `,
-            seal: `
-                <div class="form-group"><label>文件名稱</label><input type="text" name="document_name" class="form-control" required></div>
-                <div class="form-group"><label>申請印信種類</label><select name="seal_type" class="form-control" required><option value="company">補習班官印</option><option value="representative">班主任私章</option><option value="both">公司一般大小章</option><option value="contract">班主任職名章</option><option value="sign">班主任簽字章</option></select></div>
-                <div class="form-group"><label>用印份數</label><input type="number" name="seal_copies" class="form-control" required min="1"></div>
-                <div class="form-group"><label>用印事由</label><textarea name="seal_reason" class="form-control" rows="3" required></textarea></div>
-                <div class="form-group"><label>文件電子檔</label><input type="file" name="document_file" class="form-control" accept=".pdf,.doc,.docx" required></div>
-            `,
-            procurement: `
-                <div class="form-group"><label>申購物品名稱</label><input type="text" name="item_name" class="form-control" required></div>
-                <div class="form-group"><label>預估單價 (NT$)</label><input type="number" name="estimated_cost" class="form-control" required min="1"></div>
-                <div class="form-group"><label>數量</label><input type="number" name="quantity" class="form-control" required min="1"></div>
-                <div class="form-group"><label>申購原因</label><textarea name="procurement_reason" class="form-control" rows="3" required></textarea></div>
-                <div class="form-group"><label>參考報價單 (選填)</label><input type="file" name="quote_file" class="form-control" accept="image/*,.pdf"></div>
-            `,
-            cash_withdraw: `
-                <div class="form-group"><label>提領金額 (NT$)</label><input type="number" name="withdraw_amount" class="form-control" required min="1"></div>
-                <div class="form-group"><label>預計提領日期</label><input type="date" name="withdraw_date" class="form-control" required></div>
-                <div class="form-group"><label>資金用途說明</label><textarea name="withdraw_reason" class="form-control" rows="3" required></textarea></div>
-            `,
-            copy_record: `
-                <div class="form-group"><label>班級名稱</label><input type="text" name="copy_class" class="form-control" required></div>
-                <div class="form-group"><label>授課老師</label><input type="text" name="copy_teacher" class="form-control" required></div>
-                <div class="form-group"><label>講義內容</label><input type="text" name="copy_content" class="form-control" required></div>
-                <div class="form-group"><label>影印類型</label><select name="copy_color" class="form-control" required><option value="black_white">黑白</option><option value="color">彩色</option></select></div>
-                <div class="form-group"><label>總張數</label><input type="number" name="copy_pages" class="form-control" required min="1"></div>
-            `,
-            data_access: `
-                <div class="form-group"><label>調閱對象類型</label><select name="data_target_type" class="form-control" required><option value="student">學生資料</option><option value="parent">家長資料</option><option value="employee">員工資料</option></select></div>
-                <div class="form-group"><label>調閱範圍說明</label><input type="text" name="data_scope" class="form-control" placeholder="例如：2023年秋季班全體學生成績" required></div>
-                <div class="form-group"><label>調閱目的 (需符合個資法)</label><textarea name="data_purpose" class="form-control" rows="3" required></textarea></div>
-                <div class="form-group"><label><input type="checkbox" name="data_compliance" required> 本人承諾遵守個人資料保護法，調閱資料僅供公務使用，絕不外洩。</label></div>
-            `
+            payment: `<div class="form-group"><label>請款金額 (NT$)</label><input type="number" name="payment_amount" class="form-control" required min="1"></div><div class="form-group"><label>受款人/廠商名稱</label><input type="text" name="payee_name" class="form-control" required></div><div class="form-group"><label>請款事由說明</label><textarea name="payment_reason" class="form-control" rows="3" required></textarea></div>`,
+            leave: `<div class="form-group"><label>假別</label><select name="leave_type" class="form-control" required><option value="annual">特休</option><option value="sick">病假</option><option value="personal">事假</option><option value="official">公假</option></select></div><div class="form-group"><label>職務代理人 (必選)</label><select name="substitute_info" id="substituteSelect" class="form-control" required><option value="">讀取名單中...</option></select></div><div class="form-group"><label>開始時間</label><input type="datetime-local" name="leave_start" class="form-control" required></div><div class="form-group"><label>結束時間</label><input type="datetime-local" name="leave_end" class="form-control" required></div><div class="form-group"><label>請假事由</label><textarea name="leave_reason" class="form-control" rows="3" required></textarea></div><div class="form-group"><label>證明文件 (選填)</label><input type="file" name="proof_file" class="form-control" accept="image/*,.pdf"></div>`,
+            seal: `<div class="form-group"><label>文件名稱</label><input type="text" name="document_name" class="form-control" required></div><div class="form-group"><label>申請印信種類</label><select name="seal_type" class="form-control" required><option value="company">補習班官印</option><option value="representative">班主任私章</option><option value="both">公司一般大小章</option><option value="contract">班主任職名章</option><option value="sign">班主任簽字章</option></select></div><div class="form-group"><label>用印份數</label><input type="number" name="seal_copies" class="form-control" required min="1"></div><div class="form-group"><label>用印事由</label><textarea name="seal_reason" class="form-control" rows="3" required></textarea></div><div class="form-group"><label>文件電子檔</label><input type="file" name="document_file" class="form-control" accept=".pdf,.doc,.docx" required></div>`,
+            procurement: `<div class="form-group"><label>申購物品名稱</label><input type="text" name="item_name" class="form-control" required></div><div class="form-group"><label>預估單價 (NT$)</label><input type="number" name="estimated_cost" class="form-control" required min="1"></div><div class="form-group"><label>數量</label><input type="number" name="quantity" class="form-control" required min="1"></div><div class="form-group"><label>申購原因</label><textarea name="procurement_reason" class="form-control" rows="3" required></textarea></div><div class="form-group"><label>參考報價單 (選填)</label><input type="file" name="quote_file" class="form-control" accept="image/*,.pdf"></div>`,
+            cash_withdraw: `<div class="form-group"><label>提領金額 (NT$)</label><input type="number" name="withdraw_amount" class="form-control" required min="1"></div><div class="form-group"><label>預計提領日期</label><input type="date" name="withdraw_date" class="form-control" required></div><div class="form-group"><label>資金用途說明</label><textarea name="withdraw_reason" class="form-control" rows="3" required></textarea></div>`,
+            copy_record: `<div class="form-group"><label>班級名稱</label><input type="text" name="copy_class" class="form-control" required></div><div class="form-group"><label>授課老師</label><input type="text" name="copy_teacher" class="form-control" required></div><div class="form-group"><label>講義內容</label><input type="text" name="copy_content" class="form-control" required></div><div class="form-group"><label>影印類型</label><select name="copy_color" class="form-control" required><option value="black_white">黑白</option><option value="color">彩色</option></select></div><div class="form-group"><label>總張數</label><input type="number" name="copy_pages" class="form-control" required min="1"></div>`,
+            data_access: `<div class="form-group"><label>調閱對象類型</label><select name="data_target_type" class="form-control" required><option value="student">學生資料</option><option value="parent">家長資料</option><option value="employee">員工資料</option></select></div><div class="form-group"><label>調閱範圍說明</label><input type="text" name="data_scope" class="form-control" placeholder="例如：2023年秋季班全體學生成績" required></div><div class="form-group"><label>調閱目的 (需符合個資法)</label><textarea name="data_purpose" class="form-control" rows="3" required></textarea></div><div class="form-group"><label><input type="checkbox" name="data_compliance" required> 本人承諾遵守個人資料保護法，調閱資料僅供公務使用，絕不外洩。</label></div>`
         };
 
         const translateDict = {
@@ -663,7 +629,11 @@
         function switchTab(tabId, element) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            if (element) element.classList.add('active');
+            if (element) {
+                element.classList.add('active');
+                if (tabId === 'ciso') { element.style.background = '#C53030'; } // 點擊時顏色更深
+                else { document.getElementById('tab-btn-ciso').style.background = '#E53E3E'; } // 恢復原本紅色
+            }
             document.getElementById(tabId + '-tab').classList.add('active');
         }
 
@@ -672,12 +642,7 @@
         function openPasswordModal() { document.getElementById('passwordForm').reset(); document.getElementById('passwordModal').classList.add('active'); }
         function closePasswordModal() { document.getElementById('passwordModal').classList.remove('active'); }
 
-        // 💡 申請單燈箱控制函數
-        function openApplyModal() {
-            document.getElementById('applyForm').reset();
-            document.getElementById('dynamicFieldsContainer').style.display = 'none';
-            document.getElementById('applyModal').classList.add('active');
-        }
+        function openApplyModal() { document.getElementById('applyForm').reset(); document.getElementById('dynamicFieldsContainer').style.display = 'none'; document.getElementById('applyModal').classList.add('active'); }
         function closeApplyModal() { document.getElementById('applyModal').classList.remove('active'); }
 
         async function loadSubstituteOptions() {
@@ -688,9 +653,7 @@
                 if (select && result.success) {
                     select.innerHTML = '<option value="">請選擇代理人...</option>';
                     const roleMap = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
-                    result.data.forEach(u => {
-                        select.innerHTML += `<option value="${u.id}:${u.name}">${u.name} (${roleMap[u.role] || u.role})</option>`;
-                    });
+                    result.data.forEach(u => { select.innerHTML += `<option value="${u.id}:${u.name}">${u.name} (${roleMap[u.role] || u.role})</option>`; });
                 }
             } catch (e) { console.error('讀取代理人名單失敗'); }
         }
@@ -702,57 +665,37 @@
                 container.innerHTML = formTemplates[type];
                 container.style.display = 'block';
                 if (type === 'leave') loadSubstituteOptions();
-            } else {
-                container.style.display = 'none';
-                container.innerHTML = '';
-            }
+            } else { container.style.display = 'none'; container.innerHTML = ''; }
         }
 
-        // 💡 送出表單後，不換頁，自動重整大廳
         document.getElementById('applyForm').addEventListener('submit', async function (e) {
             e.preventDefault();
-
             const userStr = localStorage.getItem('currentUser');
             if (!userStr) { alert('登入狀態已失效，請重新登入。'); window.location.href = '/'; return; }
-
             const submitBtn = document.getElementById('submitApplyBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = '表單傳送中 ⏳';
-            submitBtn.style.backgroundColor = '#7A8B9A';
+            submitBtn.disabled = true; submitBtn.textContent = '表單傳送中 ⏳'; submitBtn.style.backgroundColor = '#7A8B9A';
 
             try {
                 const user = JSON.parse(userStr);
-                const formType = document.getElementById('formTypeSelector').value;
-
                 const formData = new FormData(this);
-                formData.append('formType', formType);
+                formData.append('formType', document.getElementById('formTypeSelector').value);
                 formData.append('userId', user.id);
 
                 const response = await fetch('/api/forms/apply', { method: 'POST', body: formData });
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('表單與附件送出成功！已進入簽核流程。');
+                    alert('表單送出成功！已進入簽核流程。');
                     closeApplyModal();
-
-                    // 自動重整大廳資料 (超順暢體驗)
                     loadMyRecords(user.id);
                     if (user.role !== 'EMPLOYEE') loadPendingForms(user.role);
+                    if (user.role === 'CISO') loadCompanyPending(user.role);
                     if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) loadAllRecords(user.role);
                     loadChart();
-
-                    // 自動切換到「我的申請紀錄」頁籤讓他看剛剛送出的單
                     switchTab('history', document.getElementById('tab-btn-history'));
-                } else {
-                    alert('送出失敗：' + result.error);
-                }
-            } catch (err) {
-                alert('系統發生錯誤，無法連線至伺服器。');
-            } finally {
-                // 恢復按鈕狀態
-                submitBtn.disabled = false;
-                submitBtn.textContent = '送出申請單 ➔';
-                submitBtn.style.backgroundColor = 'var(--primary-color)';
+                } else { alert('送出失敗：' + result.error); }
+            } catch (err) { alert('系統連線異常。'); } finally {
+                submitBtn.disabled = false; submitBtn.textContent = '送出申請單 ➔'; submitBtn.style.backgroundColor = 'var(--primary-color)';
             }
         });
 
@@ -760,22 +703,14 @@
             e.preventDefault();
             const oldPwd = document.getElementById('oldPwd').value;
             const newPwd = document.getElementById('newPwd').value;
-            const confirmPwd = document.getElementById('confirmPwd').value;
-            if (newPwd !== confirmPwd) return alert('兩次輸入的新密碼不一致，請重新確認。');
-            if (newPwd.length < 6) return alert('為了資訊安全，新密碼長度至少需要 6 個字元。');
-            const userStr = localStorage.getItem('currentUser');
-            if (!userStr) return;
-            const user = JSON.parse(userStr);
-
+            if (newPwd !== document.getElementById('confirmPwd').value) return alert('兩次輸入的新密碼不一致。');
+            if (newPwd.length < 6) return alert('新密碼長度至少 6 個字元。');
+            const user = JSON.parse(localStorage.getItem('currentUser'));
             try {
-                const response = await fetch('/api/change-password', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: user.id, oldPassword: oldPwd, newPassword: newPwd })
-                });
+                const response = await fetch('/api/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, oldPassword: oldPwd, newPassword: newPwd }) });
                 const result = await response.json();
-                if (result.success) { alert(result.message); closePasswordModal(); logout(); }
-                else { alert('變更失敗：' + result.message); }
-            } catch (err) { alert('系統連線異常，無法變更密碼。'); }
+                if (result.success) { alert(result.message); logout(); } else { alert('變更失敗：' + result.message); }
+            } catch (err) { alert('系統連線異常。'); }
         });
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -786,7 +721,11 @@
             const roleMapping = { 'EMPLOYEE': '一般員工', 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任' };
             document.getElementById('userName').textContent = `${user.name} (${roleMapping[user.role] || user.role})`;
 
-            if (user.role === 'CISO') document.getElementById('adminMenu').style.display = 'block';
+            if (user.role === 'CISO') {
+                document.getElementById('adminMenu').style.display = 'block';
+                document.getElementById('tab-btn-ciso').style.display = 'block'; // 顯示資安長專屬頁籤
+                await loadCompanyPending(user.role);
+            }
 
             if (user.role === 'EMPLOYEE') {
                 document.getElementById('tab-btn-pending').style.display = 'none';
@@ -810,13 +749,9 @@
                 const response = await fetch('/api/forms/stats');
                 const result = await response.json();
                 if (result.success && result.data.length > 0) {
-                    new Chart(document.getElementById('typeChart').getContext('2d'), {
-                        type: 'doughnut',
-                        data: { labels: result.data.map(i => i.label), datasets: [{ data: result.data.map(i => i.value), backgroundColor: ['#3182CE', '#E53E3E', '#D69E2E', '#38A169', '#805AD5', '#ED8936', '#4A5568'] }] },
-                        options: { responsive: true, maintainAspectRatio: false }
-                    });
+                    new Chart(document.getElementById('typeChart').getContext('2d'), { type: 'doughnut', data: { labels: result.data.map(i => i.label), datasets: [{ data: result.data.map(i => i.value), backgroundColor: ['#3182CE', '#E53E3E', '#D69E2E', '#38A169', '#805AD5', '#ED8936', '#4A5568'] }] }, options: { responsive: true, maintainAspectRatio: false } });
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { }
         }
 
         async function loadPendingForms(role) {
@@ -847,6 +782,22 @@
             }
         }
 
+        // 💡 載入全公司待簽核 (上帝視角)
+        async function loadCompanyPending(role) {
+            const tbody = document.querySelector('#cisoTable tbody');
+            const response = await fetch(`/api/forms/company-pending`, { headers: { 'x-user-role': role } });
+            const result = await response.json();
+            if (result.success) {
+                tbody.innerHTML = result.data.length ? '' : '<tr><td colspan="6" class="empty-state">目前全公司無待簽核任務</td></tr>';
+                const stepMap = { 0: '職務代理人', 1: '單位主管', 2: '管理部主任', 3: '資安長', 4: '班主任' };
+                result.data.forEach(form => {
+                    allFormsData[form.application_id] = form;
+                    let stepText = `<span style="color:#E53E3E; font-weight:bold;">${stepMap[form.current_step] || '未知'}</span>`;
+                    tbody.innerHTML += `<tr><td>#${form.application_id}</td><td style="font-weight:bold;">${form.applicant_name}</td><td>${form.form_type_name}</td><td>${stepText}</td><td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td><td><button class="btn-action btn-view" onclick="openModal(${form.application_id})">看內容</button><button class="btn-action btn-approve" onclick="reviewForm(${form.application_id}, 'APPROVE')">強制核准</button><button class="btn-action btn-reject" onclick="reviewForm(${form.application_id}, 'REJECT')">強制駁回</button></td></tr>`;
+                });
+            }
+        }
+
         async function loadAllRecords(userRole) {
             const tbody = document.querySelector('#allRecordsTable tbody');
             try {
@@ -855,12 +806,9 @@
                 if (result.success) {
                     tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="6" class="empty-state">目前無任何申請紀錄</td></tr>' : '';
                     const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已結案</span>', 'REJECTED': '<span class="badge rejected">被駁回</span>' };
-                    result.data.forEach(form => {
-                        allFormsData[form.application_id] = form;
-                        tbody.innerHTML += `<tr><td>#${form.application_id}</td><td style="font-weight:bold;">${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td><td>${statusMap[form.status]}</td><td><button class="btn-action btn-view" onclick="openModal(${form.application_id})">看內容</button></td></tr>`;
-                    });
+                    result.data.forEach(form => { allFormsData[form.application_id] = form; tbody.innerHTML += `<tr><td>#${form.application_id}</td><td style="font-weight:bold;">${form.applicant_name}</td><td>${form.form_type_name}</td><td>${new Date(form.created_at).toLocaleDateString('zh-TW')}</td><td>${statusMap[form.status]}</td><td><button class="btn-action btn-view" onclick="openModal(${form.application_id})">看內容</button></td></tr>`; });
                 }
-            } catch (err) { console.error("無法載入總表", err); }
+            } catch (err) { }
         }
 
         async function loadMyRecords(userId) {
@@ -871,91 +819,56 @@
                 if (result.success) {
                     tbody.innerHTML = result.data.length === 0 ? '<tr><td colspan="5" class="empty-state">目前無申請紀錄</td></tr>' : '';
                     const statusMap = { 'PENDING': '<span class="badge pending">簽核中</span>', 'APPROVED': '<span class="badge approved">已核准結案</span>', 'REJECTED': '<span class="badge rejected">已駁回</span>' };
-                    result.data.forEach(record => {
-                        allFormsData[record.application_id] = record;
-                        tbody.innerHTML += `<tr><td>#${record.application_id}</td><td style="font-weight:bold; color:var(--primary-color);">${record.form_type_name}</td><td>${new Date(record.created_at).toLocaleDateString('zh-TW')}</td><td>${statusMap[record.status]}</td><td><button class="btn-action btn-view" onclick="openModal(${record.application_id})">看明細</button></td></tr>`;
-                    });
+                    result.data.forEach(record => { allFormsData[record.application_id] = record; tbody.innerHTML += `<tr><td>#${record.application_id}</td><td style="font-weight:bold; color:var(--primary-color);">${record.form_type_name}</td><td>${new Date(record.created_at).toLocaleDateString('zh-TW')}</td><td>${statusMap[record.status]}</td><td><button class="btn-action btn-view" onclick="openModal(${record.application_id})">看明細</button></td></tr>`; });
                 }
-            } catch (err) { console.error("無法載入申請紀錄", err); }
+            } catch (err) { }
         }
 
         async function openModal(id) {
             const form = allFormsData[id];
             if (!form) return;
-
             document.getElementById('modalTitle').textContent = `單號 #${form.application_id} - ${form.form_type_name || '申請單明細'}`;
-            const body = document.getElementById('modalBody');
-            body.innerHTML = '';
-
-            const logsRes = await fetch(`/api/forms/${id}/logs`);
-            const logsData = await logsRes.json();
-            const logsMap = {};
-            if (logsData.success) { logsData.data.forEach(l => logsMap[l.step_number] = l); }
+            const body = document.getElementById('modalBody'); body.innerHTML = '';
+            const logsRes = await fetch(`/api/forms/${id}/logs`); const logsData = await logsRes.json();
+            const logsMap = {}; if (logsData.success) { logsData.data.forEach(l => logsMap[l.step_number] = l); }
 
             let stepsDef = [];
-
-            if (form.form_type_id === 7) {
-                stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 3, name: '資安長' }];
-            } else if (form.form_type_id === 3) {
-                stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 3, name: '資安長' }, { num: 4, name: '班主任' }];
-            } else {
-                stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 4, name: '班主任' }];
-            }
+            if (form.form_type_id === 7) stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 3, name: '資安長' }];
+            else if (form.form_type_id === 3) stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 3, name: '資安長' }, { num: 4, name: '班主任' }];
+            else stepsDef = [{ num: 1, name: '單位主管' }, { num: 2, name: '管理部主任' }, { num: 4, name: '班主任' }];
 
             if (form.form_type_id === 2) stepsDef.unshift({ num: 0, name: '職務代理人' });
 
-            if (['DIRECTOR', 'CISO', 'PRINCIPAL'].includes(form.applicant_role)) {
-                stepsDef = stepsDef.filter(s => s.num !== 1);
-            }
-            if (form.applicant_role === 'PRINCIPAL') {
-                stepsDef = stepsDef.filter(s => s.num === 0 || s.num === 4);
-            }
-            if (form.applicant_role === 'CISO' && form.form_type_id === 7) {
-                stepsDef = stepsDef.filter(s => s.num !== 3);
-            }
+            if (['DIRECTOR', 'CISO', 'PRINCIPAL'].includes(form.applicant_role)) stepsDef = stepsDef.filter(s => s.num !== 1);
+            if (form.applicant_role === 'PRINCIPAL') stepsDef = stepsDef.filter(s => s.num === 0 || s.num === 4);
+            if (form.applicant_role === 'CISO' && form.form_type_id === 7) stepsDef = stepsDef.filter(s => s.num !== 3);
 
             let progressHtml = `<div style="margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px dashed #E2E8F0;"><div style="font-weight: bold; margin-bottom: 15px; color: var(--primary-color);">表單簽核進度：</div><div style="display:flex; justify-content:space-between; text-align:center; position: relative;"><div style="position: absolute; top: 12px; left: 5%; right: 5%; height: 2px; background: #E2E8F0; z-index: 1;"></div>`;
 
             stepsDef.forEach((step) => {
-                let stepNum = step.num;
-                let stepName = step.name;
-                let statusColor = '#A0AEC0'; let icon = '⏳';
-                let approverText = '';
-
-                if (logsMap[stepNum]) {
-                    const log = logsMap[stepNum];
+                let statusColor = '#A0AEC0'; let icon = '⏳'; let approverText = '';
+                if (logsMap[step.num]) {
+                    const log = logsMap[step.num];
                     if (log.action === 'APPROVE') { statusColor = '#38A169'; icon = '✅'; } else { statusColor = '#E53E3E'; icon = '❌'; }
                     const roleMap = { 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任', 'EMPLOYEE': '一般員工' };
                     const actualRoleName = roleMap[log.role] || log.role;
-
-                    if (actualRoleName === stepName || stepNum === 0) {
-                        approverText = `<br><span style="font-weight:bold; color:#2b6cb0;">${log.name}</span>`;
-                    } else {
-                        approverText = `<br><span style="font-weight:bold; color:#E53E3E;">(${actualRoleName} ${log.name})</span>`;
-                    }
-                } else if (form.status === 'PENDING' && form.current_step === stepNum) {
-                    statusColor = '#D69E2E'; icon = '✍️';
-                }
-
-                progressHtml += `<div style="z-index: 2; background: #fff; padding: 0 5px; color: ${statusColor}; font-weight: bold; font-size: 0.85rem;"><div style="font-size: 1.2rem;">${icon}</div><div style="margin-top: 5px;">${stepName}</div><div style="margin-top: 2px; font-size: 0.8rem; font-weight: normal; color: #4A5568;">${approverText}</div></div>`;
+                    if (actualRoleName === step.name || step.num === 0) approverText = `<br><span style="font-weight:bold; color:#2b6cb0;">${log.name}</span>`;
+                    else approverText = `<br><span style="font-weight:bold; color:#E53E3E;">(${actualRoleName} ${log.name})</span>`;
+                } else if (form.status === 'PENDING' && form.current_step === step.num) { statusColor = '#D69E2E'; icon = '✍️'; }
+                progressHtml += `<div style="z-index: 2; background: #fff; padding: 0 5px; color: ${statusColor}; font-weight: bold; font-size: 0.85rem;"><div style="font-size: 1.2rem;">${icon}</div><div style="margin-top: 5px;">${step.name}</div><div style="margin-top: 2px; font-size: 0.8rem; font-weight: normal; color: #4A5568;">${approverText}</div></div>`;
             });
-            progressHtml += `</div></div>`;
-            body.innerHTML += progressHtml;
+            progressHtml += `</div></div>`; body.innerHTML += progressHtml;
 
             try {
                 if (!form.content) throw new Error("無表單內容資料");
                 const content = typeof form.content === 'string' ? JSON.parse(form.content) : form.content;
                 for (let key in content) {
                     if (key === 'formType' || key === 'userId' || key === 'substitute_id') continue;
-                    let displayKey = t(key);
-                    let displayVal = t(content[key]);
-                    if (typeof content[key] === 'string' && content[key].startsWith('/uploads/')) {
-                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}</span> <a href="${content[key]}" target="_blank" style="color:var(--primary-color); font-weight:bold; text-decoration:none;">📄 [點此預覽附件]</a></div>`;
-                    } else {
-                        body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}</span> ${displayVal}</div>`;
-                    }
+                    let displayKey = t(key); let displayVal = t(content[key]);
+                    if (typeof content[key] === 'string' && content[key].startsWith('/uploads/')) body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}</span> <a href="${content[key]}" target="_blank" style="color:var(--primary-color); font-weight:bold; text-decoration:none;">📄 [點此預覽附件]</a></div>`;
+                    else body.innerHTML += `<div class="detail-row"><span class="detail-label">${displayKey}</span> ${displayVal}</div>`;
                 }
-            } catch (e) { body.innerHTML += `<div class="detail-row" style="color:#E53E3E; font-weight:bold;">資料解析失敗，無法顯示明細。</div>`; }
+            } catch (e) { body.innerHTML += `<div class="detail-row" style="color:#E53E3E; font-weight:bold;">資料解析失敗。</div>`; }
             document.getElementById('detailModal').classList.add('active');
         }
 
@@ -965,8 +878,7 @@
             const actionText = action === 'APPROVE' ? '核准' : '駁回';
             if (!confirm(`確定要「${actionText}」這張表單嗎？`)) return;
             const userStr = localStorage.getItem('currentUser');
-            if (!userStr) return;
-            const user = JSON.parse(userStr);
+            if (!userStr) return; const user = JSON.parse(userStr);
             const comment = prompt(`請輸入簽核意見 (${actionText}):`, action === 'APPROVE' ? "同意" : "");
             if (comment === null) return;
             try {
@@ -976,6 +888,7 @@
                     alert(result.message);
                     loadPendingForms(user.role);
                     loadDelegateForms(user.id);
+                    if (user.role === 'CISO') loadCompanyPending(user.role); // 更新特權表單區
                     if (['PRINCIPAL', 'DIRECTOR', 'CISO'].includes(user.role)) loadAllRecords(user.role);
                     loadMyRecords(user.id);
                 } else { alert("簽核失敗：" + result.error); }

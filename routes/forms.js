@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const { notifyNextApprovers, notifyApplicant } = require('./webhook'); 
+const { notifyNextApprovers, notifyApplicant } = require('./webhook');
 
 const uploadDir = path.join(__dirname, '../public/uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -41,10 +41,10 @@ router.post('/apply', upload.any(), async (req, res) => {
 
         let startStep = 1;
         if (formTypeId === 2) {
-            startStep = 0; 
+            startStep = 0;
         } else {
             if (userRole === 'EMPLOYEE' || userRole === 'MANAGER' || userRole === '櫃檯主任') startStep = 1;
-            else if (userRole === 'DIRECTOR' || userRole === 'CISO') startStep = 2; 
+            else if (userRole === 'DIRECTOR' || userRole === 'CISO') startStep = 2;
             else if (userRole === 'PRINCIPAL') startStep = 4;
         }
 
@@ -52,7 +52,7 @@ router.post('/apply', upload.any(), async (req, res) => {
             'INSERT INTO applications (user_id, form_type_id, content, status, current_step) VALUES (?, ?, ?, ?, ?)',
             [userId, formTypeId, JSON.stringify(contentData), 'PENDING', startStep]
         );
-        
+
         await notifyNextApprovers(result.insertId);
         res.json({ success: true, message: '表單已成功送出並進入簽核流程。' });
     } catch (error) {
@@ -60,15 +60,15 @@ router.post('/apply', upload.any(), async (req, res) => {
     }
 });
 
-// 📌 API 1：純粹「自己的」待簽核清單 (拔除代理邏輯)
+// 📌 純粹個人的待簽核清單 (資安長只會看到第3關)
 router.get('/pending/:role/:userId', async (req, res) => {
     const { role } = req.params;
     if (role === 'EMPLOYEE') return res.json({ success: true, data: [] });
 
-    let targetSteps = []; 
+    let targetSteps = [];
 
     if (role === 'CISO') {
-        targetSteps = [1, 2, 3, 4];
+        targetSteps = [3]; // 資安長正常的防線只有第 3 關
     } else {
         if (role === 'MANAGER' || role === '櫃檯主任') targetSteps.push(1);
         if (role === 'DIRECTOR') targetSteps.push(2);
@@ -92,12 +92,31 @@ router.get('/pending/:role/:userId', async (req, res) => {
     }
 });
 
-// 📌 API 2：全新的「專屬代理簽核」清單
+// 📌 全公司待簽核清單 (專屬資安長的上帝視角 API)
+router.get('/company-pending', async (req, res) => {
+    const role = req.headers['x-user-role'];
+    if (role !== 'CISO') return res.status(403).json({ success: false, error: '權限不足' });
+
+    try {
+        const [rows] = await db.query(`
+            SELECT a.id AS application_id, u.name AS applicant_name, u.role AS applicant_role, f.name AS form_type_name, f.id AS form_type_id, a.created_at, a.current_step, a.content
+            FROM applications a
+            JOIN users u ON a.user_id = u.id
+            JOIN form_types f ON a.form_type_id = f.id
+            WHERE a.status = 'PENDING'
+            ORDER BY a.created_at DESC
+        `);
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: '無法讀取資料' });
+    }
+});
+
+// 📌 代理簽核清單
 router.get('/delegate-pending/:userId', async (req, res) => {
     const { userId } = req.params;
-    let targetSteps = [0]; // 第 0 關 (請假代理人) 一定會檢查
+    let targetSteps = [0];
 
-    // 檢查是否有高階主管設定你為代理人
     const [delegators] = await db.query('SELECT role FROM users WHERE delegate_id = ?', [userId]);
     for (let d of delegators) {
         if (d.role === 'MANAGER' || d.role === '櫃檯主任') targetSteps.push(1);
@@ -116,13 +135,12 @@ router.get('/delegate-pending/:userId', async (req, res) => {
             ORDER BY a.created_at DESC
         `, [targetSteps]);
 
-        // 過濾：如果是第 0 關，必須明確指定是我為 substitute_id 才可以
         const filteredRows = rows.filter(row => {
             if (row.current_step === 0) {
                 try {
                     const c = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
                     return String(c.substitute_id) === String(userId);
-                } catch(e) { return false; }
+                } catch (e) { return false; }
             }
             return true;
         });
@@ -195,7 +213,7 @@ router.post('/:id/review', async (req, res) => {
         let nextStep = currentStep;
         let isFinal = false;
 
-        if (currentStep === 0) { 
+        if (currentStep === 0) {
             if (['EMPLOYEE', 'MANAGER', '櫃檯主任'].includes(applicantRole)) nextStep = 1;
             else if (['DIRECTOR', 'CISO'].includes(applicantRole)) nextStep = 2;
             else if (applicantRole === 'PRINCIPAL') nextStep = 4;
@@ -203,21 +221,21 @@ router.post('/:id/review', async (req, res) => {
         else if (currentStep === 1) nextStep = 2;
         else if (currentStep === 2) {
             if (formTypeId === 7) {
-                if (applicantRole === 'CISO') isFinal = true; 
+                if (applicantRole === 'CISO') isFinal = true;
                 else nextStep = 3;
             }
             else if (formTypeId === 3) {
-                if (applicantRole === 'CISO') nextStep = 4; 
+                if (applicantRole === 'CISO') nextStep = 4;
                 else nextStep = 3;
             }
-            else nextStep = 4; 
+            else nextStep = 4;
         }
         else if (currentStep === 3) {
-            if (formTypeId === 7) isFinal = true; 
-            else if (formTypeId === 3) nextStep = 4; 
+            if (formTypeId === 7) isFinal = true;
+            else if (formTypeId === 3) nextStep = 4;
         }
         else if (currentStep === 4) {
-            isFinal = true; 
+            isFinal = true;
         }
 
         if (isFinal) {
@@ -257,11 +275,11 @@ router.get('/:id/certificate', async (req, res) => {
     try {
         const [apps] = await db.query(`SELECT a.*, u.name AS applicant_name, f.name AS form_name FROM applications a JOIN users u ON a.user_id = u.id JOIN form_types f ON a.form_type_id = f.id WHERE a.id = ?`, [formId]);
         if (apps.length === 0 || apps[0].status !== 'APPROVED') return res.status(400).send('<h2 style="text-align:center; font-family:sans-serif; margin-top:50px;">此表單不存在或尚未完成所有簽核流程，無法產生憑證。</h2>');
-        
+
         const form = apps[0];
         const [logs] = await db.query(`SELECT al.action, al.comment, al.created_at, u.name AS approver_name, u.role FROM approval_logs al JOIN users u ON al.approver_id = u.id WHERE al.application_id = ? ORDER BY al.created_at ASC`, [formId]);
         const roleMap = { 'MANAGER': '單位主管', '櫃檯主任': '櫃檯主任', 'DIRECTOR': '管理部主任', 'CISO': '資安長', 'PRINCIPAL': '班主任', 'EMPLOYEE': '一般員工' };
-        
+
         let logsHtml = '';
         logs.forEach(log => {
             const dateStr = new Date(log.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
@@ -278,7 +296,6 @@ router.get('/:id/certificate', async (req, res) => {
             <html lang="zh-TW">
             <head>
                 <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>核准證明書 - #${formId}</title>
                 <style>
                     body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; background: #f0f2f5; color: #333; padding: 20px; }
