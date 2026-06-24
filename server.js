@@ -38,7 +38,7 @@ app.get('/api/reset-data', async (req, res) => {
 app.get('/api/debug-path', (req, res) => {
     const fs = require('fs');
     const path = require('path');
-    
+
     const uploadPath = path.join(__dirname, 'public/uploads');
     const isUploadDirExist = fs.existsSync(uploadPath);
 

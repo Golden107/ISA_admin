@@ -100,7 +100,40 @@ router.post('/line', async (req, res) => {
                 const baseUrl = `https://${req.headers.host}`;
                 await replyLineMessage(event.replyToken, `請點擊下方專屬安全連結，前往網頁進行帳號綁定：\n\n🔗 ${baseUrl}/bind?lineId=${lineUserId}`);
             }
-            else if (text === '待簽核項目' || text === '簽核中項目') {
+            // 💡 邏輯 1：純自己的待簽核
+            else if (text === '待簽核項目') {
+                try {
+                    const [users] = await db.query('SELECT id, role FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return await replyLineMessage(event.replyToken, '系統查無綁定紀錄。請輸入「綁定」進行帳號連結。');
+
+                    const user = users[0];
+                    let targetSteps = [];
+
+                    if (user.role === 'CISO') targetSteps = [1, 2, 3, 4];
+                    else {
+                        if (user.role === 'MANAGER' || user.role === '櫃檯主任') targetSteps.push(1);
+                        if (user.role === 'DIRECTOR') targetSteps.push(2);
+                        if (user.role === 'PRINCIPAL') targetSteps.push(4);
+                    }
+
+                    if (targetSteps.length === 0) return await replyLineMessage(event.replyToken, '您目前的帳號權限無簽核需求。');
+
+                    const [forms] = await db.query(`SELECT a.id, f.name AS form_name, u.name AS applicant_name, a.created_at, a.content FROM applications a JOIN form_types f ON a.form_type_id = f.id JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' AND a.current_step IN (?) ORDER BY a.created_at ASC LIMIT 10`, [targetSteps]);
+
+                    if (forms.length === 0) {
+                        await replyLineMessage(event.replyToken, '太棒了！目前沒有需要您簽核的個人單據。');
+                    } else {
+                        const bubbles = forms.map(f => {
+                            const contentData = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
+                            const applyDateStr = new Date(f.created_at).toLocaleDateString('zh-TW');
+                            return buildFlexMessage(f.id, f.form_name, f.applicant_name, applyDateStr, contentData);
+                        });
+                        await replyLineMessage(event.replyToken, { type: "flex", altText: `待簽核清單 (${forms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
+                    }
+                } catch (err) { console.error(err); }
+            }
+            // 💡 邏輯 2：全新的代理清單查詢
+            else if (text === '代理簽核項目') {
                 try {
                     const [users] = await db.query('SELECT id, role FROM users WHERE line_user_id = ?', [lineUserId]);
                     if (users.length === 0) return await replyLineMessage(event.replyToken, '系統查無綁定紀錄。請輸入「綁定」進行帳號連結。');
@@ -108,23 +141,15 @@ router.post('/line', async (req, res) => {
                     const user = users[0];
                     let targetSteps = [0];
 
-                    if (user.role === 'CISO') {
-                        targetSteps.push(1, 2, 3, 4);
-                    } else {
-                        if (user.role === 'MANAGER' || user.role === '櫃檯主任') targetSteps.push(1);
-                        if (user.role === 'DIRECTOR') targetSteps.push(2);
-                        if (user.role === 'PRINCIPAL') targetSteps.push(4);
-
-                        const [delegators] = await db.query('SELECT role FROM users WHERE delegate_id = ?', [user.id]);
-                        for (let d of delegators) {
-                            if (d.role === 'MANAGER' || d.role === '櫃檯主任') targetSteps.push(1);
-                            if (d.role === 'DIRECTOR') targetSteps.push(2);
-                            if (d.role === 'CISO') targetSteps.push(3);
-                            if (d.role === 'PRINCIPAL') targetSteps.push(4);
-                        }
+                    const [delegators] = await db.query('SELECT role FROM users WHERE delegate_id = ?', [user.id]);
+                    for (let d of delegators) {
+                        if (d.role === 'MANAGER' || d.role === '櫃檯主任') targetSteps.push(1);
+                        if (d.role === 'DIRECTOR') targetSteps.push(2);
+                        if (d.role === 'CISO') targetSteps.push(3);
+                        if (d.role === 'PRINCIPAL') targetSteps.push(4);
                     }
 
-                    const [forms] = await db.query(`SELECT a.id, f.name AS form_name, u.name AS applicant_name, u.role AS applicant_role, a.created_at, a.current_step, a.content FROM applications a JOIN form_types f ON a.form_type_id = f.id JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' AND a.current_step IN (?) ORDER BY a.created_at ASC`, [targetSteps]);
+                    const [forms] = await db.query(`SELECT a.id, f.name AS form_name, u.name AS applicant_name, a.created_at, a.current_step, a.content FROM applications a JOIN form_types f ON a.form_type_id = f.id JOIN users u ON a.user_id = u.id WHERE a.status = 'PENDING' AND a.current_step IN (?) ORDER BY a.created_at ASC`, [targetSteps]);
 
                     const filteredForms = forms.filter(f => {
                         if (f.current_step === 0) {
@@ -137,14 +162,30 @@ router.post('/line', async (req, res) => {
                     }).slice(0, 10);
 
                     if (filteredForms.length === 0) {
-                        await replyLineMessage(event.replyToken, '目前沒有需要您簽核的單據。');
+                        await replyLineMessage(event.replyToken, '目前沒有需要您【代理】的單據。');
                     } else {
                         const bubbles = filteredForms.map(f => {
                             const contentData = typeof f.content === 'string' ? JSON.parse(f.content) : f.content;
                             const applyDateStr = new Date(f.created_at).toLocaleDateString('zh-TW');
                             return buildFlexMessage(f.id, f.form_name, f.applicant_name, applyDateStr, contentData);
                         });
-                        await replyLineMessage(event.replyToken, { type: "flex", altText: `待簽核清單 (${filteredForms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
+                        await replyLineMessage(event.replyToken, { type: "flex", altText: `代理簽核清單 (${filteredForms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
+                    }
+                } catch (err) { console.error(err); }
+            }
+            // 💡 邏輯 3：員工查自己的單進度
+            else if (text === '簽核中項目') {
+                try {
+                    const [users] = await db.query('SELECT id FROM users WHERE line_user_id = ?', [lineUserId]);
+                    if (users.length === 0) return await replyLineMessage(event.replyToken, '系統查無綁定紀錄。請輸入「綁定」進行帳號連結。');
+
+                    const [forms] = await db.query(`SELECT a.id, f.name AS form_name, a.current_step FROM applications a JOIN form_types f ON a.form_type_id = f.id WHERE a.status = 'PENDING' AND a.user_id = ? ORDER BY a.created_at DESC LIMIT 10`, [users[0].id]);
+
+                    if (forms.length === 0) {
+                        await replyLineMessage(event.replyToken, '您目前沒有正在簽核中的申請單。');
+                    } else {
+                        const bubbles = forms.map(f => buildPendingStatusMessage(f.id, f.form_name, f.current_step));
+                        await replyLineMessage(event.replyToken, { type: "flex", altText: `您的簽核中清單 (${forms.length}筆)`, contents: { type: "carousel", contents: bubbles } });
                     }
                 } catch (err) { console.error(err); }
             }
@@ -182,14 +223,14 @@ router.post('/line', async (req, res) => {
                     else if (form.current_step === 1) nextStep = 2;
                     else if (form.current_step === 2) {
                         if (form.form_type_id === 7) {
-                            if (form.applicant_role === 'CISO') isFinal = true; // 資安長自請，主任同意即結案
+                            if (form.applicant_role === 'CISO') isFinal = true; 
                             else nextStep = 3;
                         }
                         else if (form.form_type_id === 3) {
-                            if (form.applicant_role === 'CISO') nextStep = 4; // 資安長自請，跳過自己送班主任
+                            if (form.applicant_role === 'CISO') nextStep = 4; 
                             else nextStep = 3;
                         }
-                        else nextStep = 4; // 其他表單跳過資安長直達班主任
+                        else nextStep = 4; 
                     }
                     else if (form.current_step === 3) {
                         if (form.form_type_id === 7) isFinal = true;
