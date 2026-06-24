@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>行政簽核系統 | 系統大廳</title>
+    <title>學達補習班行政簽核系統</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -400,13 +400,13 @@
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenu()"></div>
     <div class="sidebar" id="sidebar">
-        <h2 class="desktop-only">行政簽核系統</h2>
+        <h2 class="desktop-only">學達補習班行政簽核系統</h2>
         <div class="user-profile">
             <div id="userName" style="font-weight: bold; color: var(--primary-color);">讀取中...</div>
             <div id="userRole" style="font-size: 0.85rem; color: #7A8B9A; margin-top: 5px;"></div>
         </div>
         <nav>
-            <a href="#" class="menu-item active" onclick="closeSidebar()">大廳首頁</a>
+            <a href="#" class="menu-item active" onclick="closeSidebar()">首頁</a>
             <a href="#" class="menu-item" onclick="openApplyModal(); closeSidebar();">填寫申請單</a>
             <a href="/users" class="menu-item" id="adminMenu" style="display: none;">權限管理</a>
             <a href="#" class="menu-item" onclick="openPasswordModal(); closeSidebar();"
@@ -417,7 +417,7 @@
 
     <div class="main-content">
         <div class="dashboard-header">
-            <h1>系統大廳</h1>
+            <h1>簽核系統首頁</h1>
         </div>
         <div id="overviewSection" style="display: none;">
             <h3 style="margin-bottom: 15px; color: #4A5568;">全公司申請單總覽</h3>
@@ -541,13 +541,13 @@
                     <div class="form-group"><label>表單類型</label><select id="formTypeSelector" class="form-control"
                             required onchange="renderFormFields()">
                             <option value="" disabled selected>請選擇申請項目</option>
-                            <option value="payment">請款申請單</option>
-                            <option value="leave">請假申請單</option>
-                            <option value="seal">用印申請單</option>
+                            <option value="payment">請款申請</option>
+                            <option value="leave">請假申請</option>
+                            <option value="seal">用印申請</option>
                             <option value="procurement">採購申請單</option>
-                            <option value="cash_withdraw">現金提領申請單</option>
+                            <option value="cash_withdraw">現金提領申請</option>
                             <option value="copy_record">影印登記表</option>
-                            <option value="data_access">個資調閱申請單</option>
+                            <option value="data_access">個資調閱申請</option>
                         </select></div>
                     <div id="dynamicFieldsContainer" class="dynamic-fields" style="display: none;"></div>
                     <div style="text-align: right; margin-top: 15px;"><button type="button" class="btn-action"
